@@ -1,12 +1,8 @@
-// IndividualController.java
+// IndividualCotController.java
 package com.example.xiangqi.web;
 
 import com.example.xiangqi.game.XqIndividualJuge;
-import com.example.xiangqi.llm.AIBoardDescriber;
-import com.example.xiangqi.llm.BoardStateDescriber;
-import com.example.xiangqi.llm.DeepseekClient;
-import com.example.xiangqi.llm.GeminiClient;
-import com.example.xiangqi.llm.OpenAIClient;
+import com.example.xiangqi.llm.*;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
@@ -14,12 +10,11 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.*;
-import java.time.LocalDateTime;
 import java.util.*;
 
 @Controller
-@RequestMapping("/individual")
-public class IndividualController {
+@RequestMapping("/individual-cot")
+public class IndividualCotController {
 
     private XqIndividualJuge.Board board = XqIndividualJuge.Board.initial();
     private XqIndividualJuge.Side turn = XqIndividualJuge.Side.RED;
@@ -33,9 +28,9 @@ public class IndividualController {
     private String lastRepeatedPosition = null;
     private boolean isRepeatedMove = false;
 
-    private final DeepseekClient deepseekClient;
-    private final GeminiClient geminiClient;
-    private final OpenAIClient openAIClient;
+    private final DeepseekCotClient deepseekCotClient;
+    private final GeminiCotClient geminiCotClient;
+    private final OpenAICotClient openAICotClient;
     private final BoardStateDescriber boardStateDescriber;
     private final AIBoardDescriber aiBoardDescriber;
 
@@ -44,10 +39,10 @@ public class IndividualController {
     private int moveCount = 0;
     private final List<String> moveHistory = new ArrayList<>();
 
-    private String redAIModel = "DeepSeek";
-    private String blackAIModel = "Gemini";
-    private String effectiveRedModel = "DeepSeek";
-    private String effectiveBlackModel = "Gemini";
+    private String redAIModel = "DeepSeekCoT";
+    private String blackAIModel = "GeminiCoT";
+    private String effectiveRedModel = "DeepSeekCoT";
+    private String effectiveBlackModel = "GeminiCoT";
 
     private String lastAIMove = null;
     private boolean hasNewRound = false;
@@ -62,19 +57,20 @@ public class IndividualController {
     private int redAvgTimeCsvCounter = 0;
     private int blackAvgTimeCsvCounter = 0;
 
-    private static final int MAX_ROUNDS = 80;
+    private static final int MAX_ROUNDS = 60;
     private boolean maxRoundsReached = false;
 
-    public IndividualController(DeepseekClient deepseekClient,
-                                GeminiClient geminiClient,
-                                OpenAIClient openAIClient,
-                                BoardStateDescriber boardStateDescriber,
-                                AIBoardDescriber aiBoardDescriber) {
-        this.deepseekClient = deepseekClient;
-        this.geminiClient = geminiClient;
-        this.openAIClient = openAIClient;
+    public IndividualCotController(DeepseekCotClient deepseekCotClient,
+                                   GeminiCotClient geminiCotClient,
+                                   OpenAICotClient openAICotClient,
+                                   BoardStateDescriber boardStateDescriber,
+                                   AIBoardDescriber aiBoardDescriber) {
+        this.deepseekCotClient = deepseekCotClient;
+        this.geminiCotClient = geminiCotClient;
+        this.openAICotClient = openAICotClient;
         this.boardStateDescriber = boardStateDescriber;
         this.aiBoardDescriber = aiBoardDescriber;
+
         this.redCsvCounter = readCounterFile("Red");
         this.blackCsvCounter = readCounterFile("Black");
         this.redAvgTimeCsvCounter = readAvgTimeCounterFile("Red");
@@ -82,8 +78,8 @@ public class IndividualController {
     }
 
     @GetMapping
-    public String individual() {
-        return "individual";
+    public String individualCot() {
+        return "individual-cot";
     }
 
     @GetMapping("/black/best")
@@ -238,25 +234,25 @@ public class IndividualController {
         System.out.println("[setAIModels] Received model config: red=" + redModel + ", black=" + blackModel);
 
         if ("Default".equals(redModel)) {
-            redModel = "DeepSeek";
+            redModel = "DeepSeekCoT";
         }
 
         if ("Default".equals(blackModel)) {
-            blackModel = "Gemini";
+            blackModel = "GeminiCoT";
         }
 
         System.out.println("[setAIModels] Processed config: red=" + redModel + ", black=" + blackModel);
 
-        Set<String> validModels = Set.of("DeepSeek", "Gemini", "OpenAI");
+        Set<String> validModels = Set.of("DeepSeekCoT", "GeminiCoT", "OpenAICoT");
         if (!validModels.contains(redModel)) {
             resp.put("success", false);
-            resp.put("error", "Invalid red model name, must be 'DeepSeek', 'Gemini' or 'OpenAI'");
+            resp.put("error", "Invalid red model name, must be 'DeepSeekCoT', 'GeminiCoT' or 'OpenAICoT'");
             return resp;
         }
 
         if (!validModels.contains(blackModel)) {
             resp.put("success", false);
-            resp.put("error", "Invalid black model name, must be 'DeepSeek', 'Gemini' or 'OpenAI'");
+            resp.put("error", "Invalid black model name, must be 'DeepSeekCoT', 'GeminiCoT' or 'OpenAICoT'");
             return resp;
         }
 
@@ -303,10 +299,10 @@ public class IndividualController {
         aiThinking = false;
         hasNewRound = false;
 
-        System.out.println("[startAIBattle] AI battle started, current config: " + effectiveRedModel + "(Red) vs " + effectiveBlackModel + "(Black)");
+        System.out.println("[startAIBattle] CoT AI battle started, current config: " + effectiveRedModel + "(Red) vs " + effectiveBlackModel + "(Black)");
 
         resp.put("status", "started");
-        resp.put("message", "AI battle started: " + effectiveRedModel + "(Red) vs " + effectiveBlackModel + "(Black)");
+        resp.put("message", "CoT AI battle started: " + effectiveRedModel + "(Red) vs " + effectiveBlackModel + "(Black)");
         resp.put("aiBattleMode", aiBattleMode);
         resp.put("redAIModel", effectiveRedModel);
         resp.put("blackAIModel", effectiveBlackModel);
@@ -376,7 +372,7 @@ public class IndividualController {
         }
 
         try {
-            System.out.println("[AI Round] Frontend requesting next AI round, current round: " + moveCount +
+            System.out.println("[CoT AI Round] Frontend requesting next AI round, current round: " + moveCount +
                     ", side: " + turn + ", model: " +
                     (turn == XqIndividualJuge.Side.RED ? effectiveRedModel : effectiveBlackModel));
 
@@ -479,10 +475,10 @@ public class IndividualController {
             resp.put("maxRoundsReached", maxRoundsReached);
 
         } catch (Exception e) {
-            System.err.println("Failed to get AI round: " + e.getMessage());
+            System.err.println("Failed to get CoT AI round: " + e.getMessage());
             e.printStackTrace();
             resp.put("success", false);
-            resp.put("error", "Failed to get AI round: " + e.getMessage());
+            resp.put("error", "Failed to get CoT AI round: " + e.getMessage());
         }
 
         return resp;
@@ -554,7 +550,7 @@ public class IndividualController {
                 aiName = effectiveBlackModel + " (Black)";
             }
 
-            System.out.println("[makeAIMove] Current round: " + moveCount +
+            System.out.println("[makeAIMove] CoT mode current round: " + moveCount +
                     ", side: " + turn + ", model: " + currentAIModel +
                     ", config: " + effectiveRedModel + "(Red) vs " + effectiveBlackModel + "(Black)");
 
@@ -562,49 +558,57 @@ public class IndividualController {
             String boardDescription = aiBoardDescriber.describeBoardForAI(
                     boardArray, playerSide, currentAIModel);
 
-            System.out.println("[AI Turn] Legal moves count: " + legalMoves.size());
+            System.out.println("[CoT AI Turn] Legal moves count: " + legalMoves.size());
 
             System.out.println((turn == XqIndividualJuge.Side.RED ? "[Red]" : "[Black]") +
                     " [" + currentAIModel + "] Calling...");
 
-            String sessionId = "ai_battle_" + playerSide.toLowerCase() + "_" + currentAIModel.toLowerCase();
+            String sessionId = "ai_battle_cot_" + playerSide.toLowerCase() + "_" + currentAIModel.toLowerCase();
 
             long aiStartTime = System.currentTimeMillis();
             boolean aiSuccess = false;
+            String reasoning = "";
+            String answer = "";
 
             switch (currentAIModel) {
-                case "DeepSeek":
-                    aiMove = deepseekClient.getXiangqiMove(
+                case "DeepSeekCoT":
+                    DeepseekCotClient.DeepseekCotResult deepseekResult = deepseekCotClient.chatStructured(
                             sessionId,
-                            boardDescription,
-                            playerSide,
-                            legalMoves,
-                            moveCount
+                            buildCotPrompt(boardDescription, playerSide, legalMoves, moveCount)
                     );
-                    aiSuccess = (aiMove != null);
+                    aiSuccess = deepseekResult.isSuccess();
+                    if (aiSuccess) {
+                        reasoning = deepseekResult.getReasoning();
+                        answer = deepseekResult.getAnswer();
+                        aiMove = deepseekResult.getMove();
+                    }
                     break;
-                case "Gemini":
-                    aiMove = geminiClient.getXiangqiMove(
+                case "GeminiCoT":
+                    GeminiCotClient.GeminiCotResult geminiResult = geminiCotClient.chatStructured(
                             sessionId,
-                            boardDescription,
-                            playerSide,
-                            legalMoves,
-                            moveCount
+                            buildCotPrompt(boardDescription, playerSide, legalMoves, moveCount)
                     );
-                    aiSuccess = (aiMove != null);
+                    aiSuccess = geminiResult.isSuccess();
+                    if (aiSuccess) {
+                        reasoning = geminiResult.getReasoning();
+                        answer = geminiResult.getAnswer();
+                        aiMove = geminiResult.getMove();
+                    }
                     break;
-                case "OpenAI":
-                    aiMove = openAIClient.getXiangqiMove(
+                case "OpenAICoT":
+                    OpenAICotClient.OpenAICotResult openaiResult = openAICotClient.chatStructured(
                             sessionId,
-                            boardDescription,
-                            playerSide,
-                            legalMoves,
-                            moveCount
+                            buildCotPrompt(boardDescription, playerSide, legalMoves, moveCount)
                     );
-                    aiSuccess = (aiMove != null);
+                    aiSuccess = openaiResult.isSuccess();
+                    if (aiSuccess) {
+                        reasoning = openaiResult.getReasoningSummary();
+                        answer = openaiResult.getAnswerText();
+                        aiMove = openaiResult.getMove();
+                    }
                     break;
                 default:
-                    System.err.println("Unknown AI model: " + currentAIModel);
+                    System.err.println("Unknown CoT AI model: " + currentAIModel);
                     aiMove = getRandomLegalMove(legalMoves);
                     break;
             }
@@ -728,7 +732,7 @@ public class IndividualController {
                     aiMove + (isFoul ? " (foul: " + foulReason + ")" : ""));
 
         } catch (Exception e) {
-            System.err.println("AI move generation error: " + e.getMessage());
+            System.err.println("CoT AI move generation error: " + e.getMessage());
             e.printStackTrace();
 
             recordFoulToCSV(turn, "Illegal move");
@@ -751,6 +755,15 @@ public class IndividualController {
         }
     }
 
+    private String buildCotPrompt(String boardDescription, String playerSide, List<String> legalMoves, int round) {
+        return String.format(
+                "Board state:\n%s\nCurrent side: %s\nLegal moves: %s",
+                boardDescription,
+                playerSide,
+                String.join(", ", legalMoves)
+        );
+    }
+
     private void recordFoulToCSV(XqIndividualJuge.Side side, String foulType) {
         if (!"Illegal move".equals(foulType)) {
             return;
@@ -770,7 +783,7 @@ public class IndividualController {
         foulRecords.add(record);
 
         String player = side == XqIndividualJuge.Side.RED ? "Red" : "Black";
-        System.out.println(player + " foul record added to CSV: round " + moveCount +
+        System.out.println("CoT " + player + " foul record added to CSV: round " + moveCount +
                 ", " + currentModel + " vs " + opponentModel);
     }
 
@@ -781,8 +794,8 @@ public class IndividualController {
             redAvgTimeCsvCounter = readAvgTimeCounterFile("Red");
             blackAvgTimeCsvCounter = readAvgTimeCounterFile("Black");
 
-            System.out.println("Current counter values - Red: " + redCsvCounter + ", Black: " + blackCsvCounter);
-            System.out.println("Current avg time counter values - Red: " + redAvgTimeCsvCounter + ", Black: " + blackAvgTimeCsvCounter);
+            System.out.println("CoT current counter values - Red: " + redCsvCounter + ", Black: " + blackCsvCounter);
+            System.out.println("CoT current avg time counter values - Red: " + redAvgTimeCsvCounter + ", Black: " + blackAvgTimeCsvCounter);
 
             int newRedCounter = redCsvCounter + 1;
             int newBlackCounter = blackCsvCounter + 1;
@@ -847,15 +860,15 @@ public class IndividualController {
             }
 
             if (redGenerated || blackGenerated || redAvgTimeGenerated || blackAvgTimeGenerated) {
-                System.out.println("CSV files generated, counters updated");
-                System.out.println("New counter values - Red: " + redCsvCounter + ", Black: " + blackCsvCounter);
-                System.out.println("New avg time counter values - Red: " + redAvgTimeCsvCounter + ", Black: " + blackAvgTimeCsvCounter);
+                System.out.println("CoT CSV files generated, counters updated");
+                System.out.println("CoT new counter values - Red: " + redCsvCounter + ", Black: " + blackCsvCounter);
+                System.out.println("CoT new avg time counter values - Red: " + redAvgTimeCsvCounter + ", Black: " + blackAvgTimeCsvCounter);
             } else {
-                System.err.println("All folder CSV generation failed");
+                System.err.println("CoT all folder CSV generation failed");
             }
 
         } catch (Exception e) {
-            System.err.println("Export CSV failed: " + e.getMessage());
+            System.err.println("Export CoT CSV failed: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -863,18 +876,18 @@ public class IndividualController {
     private void generateCSVForFolderWithCounter(String folder, boolean maxRoundsReached,
                                                  XqIndividualJuge.AdvantageResult advantageResult, int counter) {
         try {
-            System.out.println("Generating CSV for " + folder + " folder, using counter: " + counter);
+            System.out.println("CoT generating CSV for " + folder + " folder, using counter: " + counter);
 
             String fileName;
             if (folder.equals("Red")) {
-                fileName = String.format("%s zeroshot VS %s zeroshot%02d.csv",
+                fileName = String.format("%s cot VS %s cot%02d.csv",
                         effectiveRedModel, effectiveBlackModel, counter);
             } else {
-                fileName = String.format("%s zeroshot VS %s zeroshot%02d.csv",
+                fileName = String.format("%s cot VS %s cot%02d.csv",
                         effectiveBlackModel, effectiveRedModel, counter);
             }
 
-            String dirPath = "src/main/resources/CSV_Individual_ZeroShot_" + folder;
+            String dirPath = "src/main/resources/CSV_Individual_Cot_" + folder;
             java.nio.file.Path csvDir = java.nio.file.Paths.get(dirPath);
             if (!java.nio.file.Files.exists(csvDir)) {
                 java.nio.file.Files.createDirectories(csvDir);
@@ -945,31 +958,31 @@ public class IndividualController {
                 }
                 writer.write(resultLine + "\n");
 
-                System.out.println(folder + " folder CSV generated: " + fileName);
+                System.out.println("CoT " + folder + " folder CSV generated: " + fileName);
 
             } catch (Exception e) {
-                System.err.println("Write " + folder + " folder CSV failed: " + e.getMessage());
+                System.err.println("Write CoT " + folder + " folder CSV failed: " + e.getMessage());
                 e.printStackTrace();
             }
 
         } catch (Exception e) {
-            System.err.println("Generate " + folder + " folder CSV failed: " + e.getMessage());
+            System.err.println("Generate CoT " + folder + " folder CSV failed: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
     private void generateAvgTimeCSVForFolderWithCounter(String folder, int counter) {
         try {
-            System.out.println("Generating avg time CSV for " + folder + " folder, using counter: " + counter);
+            System.out.println("CoT generating avg time CSV for " + folder + " folder, using counter: " + counter);
 
             String fileName;
             if (folder.equals("Red")) {
-                fileName = String.format("ZeroShot_Red_AverageTime%02d.csv", counter);
+                fileName = String.format("CoT_Red_AverageTime%02d.csv", counter);
             } else {
-                fileName = String.format("ZeroShot_Black_AverageTime%02d.csv", counter);
+                fileName = String.format("CoT_Black_AverageTime%02d.csv", counter);
             }
 
-            String dirPath = "src/main/resources/CSV_Individual_ZeroShot_" + folder + "_AverageTime";
+            String dirPath = "src/main/resources/CSV_Individual_Cot_" + folder + "_AverageTime";
             java.nio.file.Path csvDir = java.nio.file.Paths.get(dirPath);
             if (!java.nio.file.Files.exists(csvDir)) {
                 java.nio.file.Files.createDirectories(csvDir);
@@ -1004,24 +1017,24 @@ public class IndividualController {
                     writer.write(String.format("%s,%.2f,%s\n", currentModel, avgTime, opponentModel));
                 }
 
-                System.out.println(folder + " avg time folder CSV generated: " + fileName);
-                System.out.println("Average response time stats: " + avgResponseTimes);
+                System.out.println("CoT " + folder + " avg time folder CSV generated: " + fileName);
+                System.out.println("CoT average response time stats: " + avgResponseTimes);
 
             } catch (Exception e) {
-                System.err.println("Write " + folder + " avg time folder CSV failed: " + e.getMessage());
+                System.err.println("Write CoT " + folder + " avg time folder CSV failed: " + e.getMessage());
                 e.printStackTrace();
             }
 
         } catch (Exception e) {
-            System.err.println("Generate " + folder + " avg time folder CSV failed: " + e.getMessage());
+            System.err.println("Generate CoT " + folder + " avg time folder CSV failed: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
     private int readAvgTimeCounterFile(String folder) {
         try {
-            String dirPath = "src/main/resources/CSV_Individual_ZeroShot_" + folder + "_AverageTime";
-            String counterFileName = folder.equals("Red") ? "ZeroShot_Red_AverageTime_counter.txt" : "ZeroShot_Black_AverageTime_counter.txt";
+            String dirPath = "src/main/resources/CSV_Individual_Cot_" + folder + "_AverageTime";
+            String counterFileName = folder.equals("Red") ? "CoT_Red_AverageTime_counter.txt" : "CoT_Black_AverageTime_counter.txt";
             java.nio.file.Path counterPath = java.nio.file.Paths.get(dirPath, counterFileName);
 
             if (!java.nio.file.Files.exists(counterPath.getParent())) {
@@ -1037,7 +1050,7 @@ public class IndividualController {
                     java.nio.charset.StandardCharsets.UTF_8);
             return Integer.parseInt(content.trim());
         } catch (Exception e) {
-            System.err.println("Read " + folder + " avg time counter file failed: " + e.getMessage());
+            System.err.println("Read CoT " + folder + " avg time counter file failed: " + e.getMessage());
             e.printStackTrace();
             return 0;
         }
@@ -1045,14 +1058,14 @@ public class IndividualController {
 
     private void updateAvgTimeCounterFile(String folder, int newCounter) {
         try {
-            String dirPath = "src/main/resources/CSV_Individual_ZeroShot_" + folder + "_AverageTime";
-            String counterFileName = folder.equals("Red") ? "ZeroShot_Red_AverageTime_counter.txt" : "ZeroShot_Black_AverageTime_counter.txt";
+            String dirPath = "src/main/resources/CSV_Individual_Cot_" + folder + "_AverageTime";
+            String counterFileName = folder.equals("Red") ? "CoT_Red_AverageTime_counter.txt" : "CoT_Black_AverageTime_counter.txt";
             java.nio.file.Path counterPath = java.nio.file.Paths.get(dirPath, counterFileName);
 
             java.nio.file.Files.createDirectories(counterPath.getParent());
 
             java.nio.file.Files.write(counterPath, String.valueOf(newCounter).getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            System.out.println(folder + " avg time counter updated to: " + newCounter);
+            System.out.println("CoT " + folder + " avg time counter updated to: " + newCounter);
 
             if (folder.equals("Red")) {
                 redAvgTimeCsvCounter = newCounter;
@@ -1060,15 +1073,15 @@ public class IndividualController {
                 blackAvgTimeCsvCounter = newCounter;
             }
         } catch (Exception e) {
-            System.err.println("Update " + folder + " avg time counter file failed: " + e.getMessage());
+            System.err.println("Update CoT " + folder + " avg time counter file failed: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
     private int readCounterFile(String folder) {
         try {
-            String dirPath = "src/main/resources/CSV_Individual_ZeroShot_" + folder;
-            String counterFileName = folder.equals("Red") ? "Zero_Shot_Red_counter.txt" : "ZeroShot_Black_counter.txt";
+            String dirPath = "src/main/resources/CSV_Individual_Cot_" + folder;
+            String counterFileName = folder.equals("Red") ? "CoT_Red_counter.txt" : "CoT_Black_counter.txt";
             java.nio.file.Path counterPath = java.nio.file.Paths.get(dirPath, counterFileName);
 
             if (!java.nio.file.Files.exists(counterPath.getParent())) {
@@ -1084,7 +1097,7 @@ public class IndividualController {
                     java.nio.charset.StandardCharsets.UTF_8);
             return Integer.parseInt(content.trim());
         } catch (Exception e) {
-            System.err.println("Read " + folder + " counter file failed: " + e.getMessage());
+            System.err.println("Read CoT " + folder + " counter file failed: " + e.getMessage());
             e.printStackTrace();
             return 0;
         }
@@ -1092,14 +1105,14 @@ public class IndividualController {
 
     private void updateCounterFile(String folder, int newCounter) {
         try {
-            String dirPath = "src/main/resources/CSV_Individual_ZeroShot_" + folder;
-            String counterFileName = folder.equals("Red") ? "Zero_Shot_Red_counter.txt" : "ZeroShot_Black_counter.txt";
+            String dirPath = "src/main/resources/CSV_Individual_Cot_" + folder;
+            String counterFileName = folder.equals("Red") ? "CoT_Red_counter.txt" : "CoT_Black_counter.txt";
             java.nio.file.Path counterPath = java.nio.file.Paths.get(dirPath, counterFileName);
 
             java.nio.file.Files.createDirectories(counterPath.getParent());
 
             java.nio.file.Files.write(counterPath, String.valueOf(newCounter).getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            System.out.println(folder + " counter updated to: " + newCounter);
+            System.out.println("CoT " + folder + " counter updated to: " + newCounter);
 
             if (folder.equals("Red")) {
                 redCsvCounter = newCounter;
@@ -1107,7 +1120,7 @@ public class IndividualController {
                 blackCsvCounter = newCounter;
             }
         } catch (Exception e) {
-            System.err.println("Update " + folder + " counter file failed: " + e.getMessage());
+            System.err.println("Update CoT " + folder + " counter file failed: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -1207,7 +1220,7 @@ public class IndividualController {
             gameResult = "Black has no legal moves, " + effectiveRedModel + " (Red) wins";
         }
 
-        System.out.println("Game ended: " + gameResult);
+        System.out.println("CoT game ended: " + gameResult);
         exportGameResultToCSV(false, null);
     }
 
@@ -1238,7 +1251,7 @@ public class IndividualController {
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
-            response.put("message", "Game ended, foul records generated");
+            response.put("message", "CoT Game ended, foul records generated");
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {

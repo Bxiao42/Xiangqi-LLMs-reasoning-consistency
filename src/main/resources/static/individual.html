@@ -1,8 +1,9 @@
+<!-- individual.html -->
 <!DOCTYPE html>
 <html lang="zh">
 <head>
     <meta charset="UTF-8" />
-    <title>Player vs Player - Chinese Chess</title>
+    <title>Chinese Chess AI Battle - ZeroShot & CoT</title>
     <style>
         :root{ --cell:50px; }
         body{
@@ -33,9 +34,15 @@
         }
         .toolbar{
             display:flex;
+            flex-direction: column;
             gap:8px;
             align-items:center;
-            flex-wrap:wrap;
+        }
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: center;
         }
         button{
             padding:8px 14px;
@@ -44,9 +51,14 @@
             background:#fff;
             cursor:pointer;
             font-size:14px;
+            width: 260px;
         }
         button:hover{
             box-shadow:0 4px 12px rgba(0,0,0,.08);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
         }
         h3{
             margin:.2rem 0;
@@ -76,6 +88,8 @@
         .hint{
             color:#888;
             font-size:12px;
+            text-align: center;
+            margin-top: 8px;
         }
         #statusBar{
             margin:15px 0;
@@ -147,6 +161,207 @@
             color: #333;
             font-weight: 600;
         }
+
+        /* Mode selection tabs */
+        .mode-tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+        }
+
+        .mode-tab {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px 6px 0 0;
+            background: #f5f5f5;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .mode-tab:hover {
+            background: #e9e9e9;
+        }
+
+        .mode-tab.active {
+            background: #4a90e2;
+            color: white;
+            border-color: #4a90e2;
+        }
+
+        /* AI model selection styles */
+        .model-selection-group {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+        }
+
+        .model-select-btn {
+            width: 120px;
+        }
+
+        /* Modal styles */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            width: 320px;
+            max-width: 90%;
+        }
+
+        .modal-title {
+            margin: 0 0 15px 0;
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            text-align: center;
+        }
+
+        .model-options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .model-option {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .model-option:hover {
+            background: #f8f9fa;
+            border-color: #4a90e2;
+        }
+
+        .model-option.selected {
+            background: #f0f7ff;
+            border-color: #4a90e2;
+            font-weight: 500;
+        }
+
+        .model-checkbox {
+            margin-right: 10px;
+            width: 16px;
+            height: 16px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .modal-btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            background: white;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .modal-btn.confirm {
+            background: #4a90e2;
+            color: white;
+            border-color: #4a90e2;
+        }
+
+        .modal-btn.confirm:hover {
+            background: #3a7bc8;
+        }
+
+        .modal-btn.cancel:hover {
+            background: #f5f5f5;
+        }
+
+        /* Current configuration display */
+        .current-config {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .config-label {
+            color: #666;
+            margin-right: 5px;
+        }
+
+        .config-value {
+            font-weight: 500;
+            color: #4a90e2;
+        }
+
+        .config-value.default {
+            color: #888;
+            font-style: italic;
+        }
+
+        /* Continuous battle settings styles */
+        .continuous-settings {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: center;
+        }
+        .continuous-settings label {
+            font-size: 14px;
+            color: #666;
+        }
+        .continuous-settings input {
+            width: 60px;
+            padding: 4px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .continuous-settings button {
+            width: 80px;
+            padding: 4px 12px;
+            font-size: 13px;
+        }
+
+        #continuousStatus {
+            display: none;
+            background: #f0f9ff;
+            border: 1px solid #b6e3ff;
+            border-radius: 8px;
+            padding: 8px 12px;
+            margin-top: 5px;
+            font-size: 13px;
+            color: #0066cc;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -154,11 +369,48 @@
     <div class="game-container">
         <div id="leftCol">
             <canvas id="board" width="450" height="500"></canvas>
+
             <div class="toolbar">
-                <button onclick="newGame()">New Game</button>
-                <span class="hint">Red moves first: Click to select piece, then click target square</span>
+                <!-- Mode selection tabs -->
+                <div class="mode-tabs">
+                    <div class="mode-tab active" onclick="switchMode('zero-shot')">ZeroShot</div>
+                    <div class="mode-tab" onclick="switchMode('cot')">CoT</div>
+                </div>
+
+                <div class="button-group">
+                    <button onclick="newGame()">New Game</button>
+
+                    <!-- AI model selection -->
+                    <div class="model-selection-group">
+                        <button class="model-select-btn" onclick="showModelSelect('red')" id="redModelBtn">Red</button>
+                        <button class="model-select-btn" onclick="showModelSelect('black')" id="blackModelBtn">Black</button>
+                    </div>
+
+                    <button onclick="startAIBattle()" id="startBattleBtn">Start AI Battle</button>
+                </div>
+
+                <!-- Current configuration display -->
+                <div class="current-config" id="currentConfig">
+                    <span class="config-label">Current Configuration：</span>
+                    <span id="redConfig" class="config-value">Red: Default</span>
+                    <span style="margin: 0 8px;">vs</span>
+                    <span id="blackConfig" class="config-value">Black: Default</span>
+                </div>
+
+                <!-- Continuous battle settings -->
+                <div class="continuous-settings">
+                    <label for="maxGames">Number of battlefields: </label>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <input type="number" id="maxGames" min="1" max="100" value="3">
+                        <button onclick="setContinuousBattle()">Confirm</button>
+                    </div>
+                    <div id="continuousStatus"></div>
+                </div>
+
+                <span class="hint" id="modeHint">After selecting your AI model configuration, click “Start AI Battle” to begin the match.</span>
             </div>
-            <div id="statusBar">Status: Game preparing...</div>
+
+            <div id="statusBar">Status: Game loading...</div>
             <div id="gameOverMessage"></div>
         </div>
 
@@ -182,8 +434,22 @@
     </div>
 </div>
 
+<!-- Model selection modal -->
+<div class="modal-overlay" id="modelSelectModal">
+    <div class="modal-content">
+        <h4 class="modal-title" id="modalTitle">Select Model</h4>
+        <div class="model-options" id="modelOptions">
+            <!-- Options will be dynamically generated by JavaScript -->
+        </div>
+        <div class="modal-buttons">
+            <button class="modal-btn cancel" onclick="hideModelSelect()">Cancel</button>
+            <button class="modal-btn confirm" onclick="confirmModelSelection()">Confirm</button>
+        </div>
+    </div>
+</div>
+
 <script>
-    /* ========== Canvas & DPR ========== */
+    // Canvas & DPR
     const cvs = document.getElementById('board');
     const ctx = cvs.getContext('2d');
     const DPR = window.devicePixelRatio || 1;
@@ -194,10 +460,10 @@
     cvs.height = Math.round(LOGICAL_H * DPR);
     ctx.scale(DPR, DPR);
 
-    /* ========== Fixed padding ========== */
+    // Fixed padding
     const PAD_L = 24, PAD_R = 24, PAD_T = 22, PAD_B = 22;
 
-    /* ========== Geometry ========== */
+    // Geometry
     const OUT_W = LOGICAL_W, OUT_H = LOGICAL_H;
     const COLS = 9, ROWS = 10;
     const INNER_X = PAD_L;
@@ -207,7 +473,7 @@
     const CELL_W  = INNER_W / COLS;
     const CELL_H  = INNER_H / ROWS;
 
-    /* ========== Resources & Game state ========== */
+    // Resources & Game state
     const RED='r', BLACK='b';
     const SPRITES = {
         board: '/images/MAIN.GIF',
@@ -235,10 +501,54 @@
     let locked = false;
     let gameStatus = 'preparing';
     let currentTurn = 'RED';
+    let gameOver = false;
+
+    // AI battle control variables
+    let isAIBattleRunning = false;
+    let lastMove = null;
+
+    // Mode control
+    let currentMode = 'zero-shot'; // 'zero-shot' or 'cot'
+
+    // API paths for different modes
+    const API_PATHS = {
+        'zero-shot': '/individual',
+        'cot': '/individual-cot'
+    };
 
     // Foul records
     let redFoulRows = [];
     let blackFoulRows = [];
+
+    // AI model configuration
+    let currentSelectingSide = 'red';
+    let selectedModel = 'Default';
+    let aiConfig = {
+        red: 'Default',
+        black: 'Default'
+    };
+
+    // Model options for different modes
+    const MODEL_OPTIONS = {
+        'zero-shot': [
+            { id: 'Default', name: 'Default', displayName: 'Default' },
+            { id: 'DeepSeek', name: 'DeepSeek zeroshot', displayName: 'deepseek-chat' },
+            { id: 'Gemini', name: 'Gemini zeroshot', displayName: 'gemini-2.5-flash' },
+            { id: 'OpenAI', name: 'OpenAI zeroshot', displayName: 'gpt-5-mini' }
+        ],
+        'cot': [
+            { id: 'Default', name: 'Default', displayName: 'Default' },
+            { id: 'DeepSeekCoT', name: 'DeepSeekCoT', displayName: 'deepseek-reasoner' },
+            { id: 'GeminiCoT', name: 'GeminiCoT', displayName: 'gemini-2.5-pro' },
+            { id: 'OpenAICoT', name: 'OpenAICoT', displayName: 'gpt-5.2' }
+        ]
+    };
+
+    // Continuous battle related variables
+    let continuousBattleEnabled = false;
+    let maxGames = 3;
+    let currentGame = 0;
+    let continuousResults = [];
 
     function initialBoard(){
         const B = Array.from({length:ROWS}, ()=>Array(COLS).fill(null));
@@ -256,7 +566,7 @@
     }
     function put(B,r,c,s,t){ B[r][c]={s,t}; }
 
-    /* ========== Drawing ========== */
+    // Drawing
     function drawPieces(){
         const size = Math.min(CELL_W, CELL_H) * 0.86, rds = size/2;
         for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
@@ -284,7 +594,7 @@
         drawPieces();
     }
 
-    /* ========== Click detection ========== */
+    // Click detection
     function hitToCell(x,y){
         const gx = x - INNER_X, gy = y - INNER_Y;
         if(gx < 0 || gy < 0 || gx > INNER_W || gy > INNER_H) return null;
@@ -295,7 +605,7 @@
     }
 
     cvs.addEventListener('click', async e=>{
-        if (locked || gameStatus === 'finished') return;
+        if (locked || gameStatus === 'finished' || isAIBattleRunning) return;
         const rect = cvs.getBoundingClientRect();
         const x = (e.clientX - rect.left);
         const y = (e.clientY - rect.top);
@@ -320,7 +630,7 @@
         }
     });
 
-    /* ========== UCI application ========== */
+    // UCI application
     function applyUci(uci){
         if (!uci || uci.length < 4) return;
         const fromC = uci.charCodeAt(0) - 97;
@@ -331,12 +641,14 @@
         if(!p) return;
         board[toR][toC] = p;
         board[fromR][fromC] = null;
+        lastMove = uci;
+        console.log(`Applied move: ${uci}`);
     }
 
-    /* ========== Status updates ========== */
+    // Status updates
     function updateStatusBar(message, type = 'normal') {
         const bar = document.getElementById('statusBar');
-        bar.textContent = `Status: ${message}`;
+       bar.textContent = `Status: ${message}`;
         bar.className = '';
         if (type === 'game-over') bar.classList.add('game-over');
         if (type === 'win-message') bar.classList.add('win-message');
@@ -354,67 +666,370 @@
         document.getElementById('gameOverMessage').style.display = 'none';
     }
 
-    /* ========== Load table data ========== */
+    // Switch mode
+    function switchMode(mode) {
+        if (mode === currentMode) return;
+
+        // Update tab status
+        document.querySelectorAll('.mode-tab').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        if (mode === 'zero-shot') {
+            document.querySelector('.mode-tab:nth-child(1)').classList.add('active');
+        } else {
+            document.querySelector('.mode-tab:nth-child(2)').classList.add('active');
+        }
+
+        currentMode = mode;
+
+        // Update hint text
+        const hintText = mode === 'zero-shot' ?
+            'After selecting your ZeroShot AI model configuration, click "Start AI Battle" to begin the match.' :
+            'After selecting your CoT AI model configuration, click "Start AI Battle" to begin the match.';
+        document.getElementById('modeHint').textContent = hintText;
+
+        // Reset AI config
+        aiConfig = {
+            red: 'Default',
+            black: 'Default'
+        };
+        updateConfigDisplay();
+
+        // Show current mode information
+        updateStatusBar(`Switched to ${mode === 'zero-shot' ? 'ZeroShot' : 'CoT'} mode`);
+    }
+
+    // Update foul tables
+    function updateFoulTables(redRecords, blackRecords) {
+        // Update red foul table
+        const redFoulBody = document.getElementById('redFoulBody');
+        redFoulBody.innerHTML = '';
+        if (redRecords && redRecords.length > 0) {
+            redRecords.forEach(record => {
+                let roundNum = '';
+                if (record['回合数'] !== undefined) {
+                    roundNum = record['回合数'];
+                } else if (record.round !== undefined) {
+                    roundNum = record.round;
+                } else if (record[0] !== undefined) {
+                    roundNum = record[0];
+                }
+
+                let foulType = '';
+                if (record['错误类型'] !== undefined) {
+                    foulType = record['错误类型'];
+                } else if (record.foulType !== undefined) {
+                    foulType = record.foulType;
+                } else if (record[1] !== undefined) {
+                    foulType = record[1];
+                } else {
+                    foulType = 'Illegal move';
+                }
+
+                const row = `<tr>
+                    <td>${roundNum}</td>
+                    <td>${foulType}</td>
+                </tr>`;
+                redFoulBody.insertAdjacentHTML('beforeend', row);
+            });
+        } else {
+            redFoulBody.innerHTML = '<tr><td colspan="2">No record of fouls</td></tr>';
+        }
+
+        // Update black foul table
+        const blackFoulBody = document.getElementById('blackFoulBody');
+        blackFoulBody.innerHTML = '';
+        if (blackRecords && blackRecords.length > 0) {
+            blackRecords.forEach(record => {
+                let roundNum = '';
+                if (record['回合数'] !== undefined) {
+                    roundNum = record['回合数'];
+                } else if (record.round !== undefined) {
+                    roundNum = record.round;
+                } else if (record[0] !== undefined) {
+                    roundNum = record[0];
+                }
+
+                let foulType = '';
+                if (record['错误类型'] !== undefined) {
+                    foulType = record['错误类型'];
+                } else if (record.foulType !== undefined) {
+                    foulType = record.foulType;
+                } else if (record[1] !== undefined) {
+                    foulType = record[1];
+                } else {
+                    foulType = 'Illegal move';
+                }
+
+                const row = `<tr>
+                    <td>${roundNum}</td>
+                    <td>${foulType}</td>
+                </tr>`;
+                blackFoulBody.insertAdjacentHTML('beforeend', row);
+            });
+        } else {
+            blackFoulBody.innerHTML = '<tr><td colspan="2">No record of fouls</td></tr>';
+        }
+    }
+
+    // Load table data
     async function loadTableData() {
         try {
+            const basePath = API_PATHS[currentMode];
+
             // Load red foul records
-            const redFoulResponse = await fetch('/individual/red/foul');
+            const redFoulResponse = await fetch(`${basePath}/red/foul`);
             if (redFoulResponse.ok) {
                 const redFoul = await redFoulResponse.json();
-                const redFoulBody = document.getElementById('redFoulBody');
-                redFoulBody.innerHTML = '';
-                redFoul.forEach(row => {
-                    redFoulBody.innerHTML += `<tr>
-                        <td>${row['Foul Number'] || ''}</td>
-                        <td>${row['Foul Type'] || ''}</td>
-                    </tr>`;
-                });
+                updateFoulTables(redFoul, []);
             }
 
             // Load black foul records
-            const blackFoulResponse = await fetch('/individual/black/foul');
+            const blackFoulResponse = await fetch(`${basePath}/black/foul`);
             if (blackFoulResponse.ok) {
                 const blackFoul = await blackFoulResponse.json();
-                const blackFoulBody = document.getElementById('blackFoulBody');
-                blackFoulBody.innerHTML = '';
-                blackFoul.forEach(row => {
-                    blackFoulBody.innerHTML += `<tr>
-                        <td>${row['Foul Number'] || ''}</td>
-                        <td>${row['Foul Type'] || ''}</td>
-                    </tr>`;
-                });
+                updateFoulTables([], blackFoul);
             }
         } catch (error) {
             console.error('Failed to load table data:', error);
         }
     }
 
-    /* ========== Game control ========== */
+    // Game control
     async function newGame(){
+        // Stop AI battle
+        if (isAIBattleRunning) {
+            isAIBattleRunning = false;
+        }
+
         redFoulRows = [];
         blackFoulRows = [];
         moveCount = 0;
         locked = false;
         gameStatus = 'playing';
         currentTurn = 'RED';
+        gameOver = false;
+        lastMove = null;
 
-        await fetch('/individual/new', {method:'POST'});
+        const basePath = API_PATHS[currentMode];
+        await fetch(`${basePath}/new`, {method:'POST'});
         board = initialBoard();
         select = null;
 
-        // Clear tables
-        document.getElementById('redFoulBody').innerHTML = '';
-        document.getElementById('blackFoulBody').innerHTML = '';
+        // Clear foul tables
+        updateFoulTables([], []);
 
-        updateStatusBar('Game started - Red moves first');
+        updateStatusBar(`Game started - Red moves first (${currentMode === 'zero-shot' ? 'ZeroShot' : 'CoT'} mode)`);
         hideGameOverMessage();
         draw();
+
+        // Reset to default config
+        aiConfig = {
+            red: 'Default',
+            black: 'Default'
+        };
+        updateConfigDisplay();
     }
 
-    /* ========== Backend communication ========== */
+    // AI model selection functions
+    function showModelSelect(side) {
+        currentSelectingSide = side;
+        const modal = document.getElementById('modelSelectModal');
+        const title = document.getElementById('modalTitle');
+        const optionsContainer = document.getElementById('modelOptions');
+
+        if (side === 'red') {
+            title.textContent = `Select Red AI Model (${currentMode === 'zero-shot' ? 'ZeroShot' : 'CoT'} mode)`;
+        } else {
+            title.textContent = `Select Black AI Model (${currentMode === 'zero-shot' ? 'ZeroShot' : 'CoT'} mode)`;
+        }
+
+        // Get model options based on current mode
+        const modelOptions = MODEL_OPTIONS[currentMode];
+
+        // Clear options container
+        optionsContainer.innerHTML = '';
+
+        // Dynamically generate options based on current mode, store model name in dataset
+        modelOptions.forEach(model => {
+            const optionDiv = document.createElement('div');
+            optionDiv.className = 'model-option';
+            optionDiv.dataset.modelName = model.name; // store name for matching
+            optionDiv.onclick = () => selectModel(model.name);
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'model-checkbox';
+            checkbox.id = `model-${model.id}`;
+
+            const label = document.createElement('label');
+            label.htmlFor = `model-${model.id}`;
+            label.textContent = model.displayName; // display model's own name
+
+            optionDiv.appendChild(checkbox);
+            optionDiv.appendChild(label);
+            optionsContainer.appendChild(optionDiv);
+        });
+
+        // Show currently selected model
+        const currentModel = aiConfig[side];
+
+        // Construct the name to select based on stored value
+        let modelToSelect = currentModel === 'Default' ? 'Default' :
+                            currentModel + (currentMode === 'zero-shot' ? ' zeroshot' : 'CoT');
+
+        selectModel(modelToSelect);
+
+        modal.style.display = 'flex';
+    }
+
+    function hideModelSelect() {
+        const modal = document.getElementById('modelSelectModal');
+        modal.style.display = 'none';
+        selectedModel = aiConfig[currentSelectingSide]; // restore previous selection
+    }
+
+    function selectModel(modelName) {
+        const options = document.querySelectorAll('.model-option');
+        options.forEach(option => {
+            option.classList.remove('selected');
+            const checkbox = option.querySelector('.model-checkbox');
+            checkbox.checked = false;
+        });
+
+        // Match via dataset.modelName
+        const selectedOption = Array.from(options).find(option =>
+            option.dataset.modelName === modelName
+        );
+
+        if (selectedOption) {
+            selectedOption.classList.add('selected');
+            const checkbox = selectedOption.querySelector('.model-checkbox');
+            checkbox.checked = true;
+            selectedModel = modelName;
+        }
+    }
+
+    async function confirmModelSelection() {
+        if (!selectedModel) {
+            alert('Please select a model');
+            return;
+        }
+
+        // Convert model name format: from option name to stored value
+        let modelName;
+        if (selectedModel === 'Default') {
+            modelName = 'Default';
+        } else {
+            // Remove display suffix, get original model name
+            if (currentMode === 'zero-shot') {
+                modelName = selectedModel.replace(' zeroshot', '');
+            } else {
+                modelName = selectedModel;
+            }
+        }
+
+        // Update config
+        aiConfig[currentSelectingSide] = modelName;
+
+        // Check if config is valid (Default can coexist with any model)
+        if (aiConfig.red !== 'Default' && aiConfig.black !== 'Default' &&
+            aiConfig.red === aiConfig.black) {
+            alert('Red and Black cannot use the same AI model! Please keep at least one side as Default.');
+            // Restore previous config
+            aiConfig[currentSelectingSide] = 'Default';
+        }
+
+        updateConfigDisplay();
+        hideModelSelect();
+
+        // Update backend config
+        await updateAIModels();
+    }
+
+    function updateConfigDisplay() {
+        const redConfig = document.getElementById('redConfig');
+        const blackConfig = document.getElementById('blackConfig');
+
+        // Set display text (use stored model name, Default special)
+        const redDisplayText = aiConfig.red === 'Default' ? 'Default' : aiConfig.red;
+        const blackDisplayText = aiConfig.black === 'Default' ? 'Default' : aiConfig.black;
+
+        redConfig.textContent = `Red: ${redDisplayText}`;
+        blackConfig.textContent = `Black: ${blackDisplayText}`;
+
+        // Add special style for Default option
+        if (aiConfig.red === 'Default') {
+            redConfig.classList.add('default');
+        } else {
+            redConfig.classList.remove('default');
+        }
+
+        if (aiConfig.black === 'Default') {
+            blackConfig.classList.add('default');
+        } else {
+            blackConfig.classList.remove('default');
+        }
+    }
+
+    // Update AI model config
+    async function updateAIModels() {
+        try {
+            // Prepare model config to send to backend
+            let redModelToSend = aiConfig.red;
+            let blackModelToSend = aiConfig.black;
+
+            console.log(`[${currentMode}] Preparing to send config: red=${redModelToSend}, black=${blackModelToSend}`);
+
+            // If Default is chosen, use default model (as agreed with backend)
+            if (redModelToSend === 'Default') {
+                redModelToSend = currentMode === 'zero-shot' ? 'DeepSeek' : 'DeepSeekCoT';
+            }
+
+            if (blackModelToSend === 'Default') {
+                blackModelToSend = currentMode === 'zero-shot' ? 'Gemini' : 'GeminiCoT';
+            }
+
+            console.log(`[${currentMode}] Processed config: red=${redModelToSend}, black=${blackModelToSend}`);
+
+            // Check if same model selected
+            if (redModelToSend === blackModelToSend) {
+                alert('Red and Black cannot use the same AI model! Please adjust config.');
+                return false;
+            }
+
+            const basePath = API_PATHS[currentMode];
+            const response = await fetch(`${basePath}/ai/set-models`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    redModel: redModelToSend,
+                    blackModel: blackModelToSend
+                })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                console.log(`[${currentMode}] AI model config updated successfully:`, data.message);
+                updateStatusBar(`AI model config updated: ${redModelToSend}(Red) vs ${blackModelToSend}(Black)`);
+                return true;
+            } else {
+                console.error(`[${currentMode}] AI model config update failed:`, data.error);
+                alert('AI model config update failed: ' + data.error);
+                return false;
+            }
+        } catch (error) {
+            console.error(`[${currentMode}] Update AI model config failed:`, error);
+            alert('Update AI model config failed: ' + error.message);
+            return false;
+        }
+    }
+
+    // Backend communication
     async function doMove(fromR,fromC,toR,toC){
         try{
-            const res = await fetch('/individual/move',{
+            const basePath = API_PATHS[currentMode];
+            const res = await fetch(`${basePath}/move`,{
                 method:'POST',
                 headers:{'Content-Type':'application/json'},
                 body:JSON.stringify({fromR,fromC,toR,toC})
@@ -431,6 +1046,7 @@
         if (data.result === 'game_over') {
             locked = true;
             gameStatus = 'finished';
+            gameOver = true;
             handleGameResult(data);
             return;
         }
@@ -438,9 +1054,8 @@
         if(data.result === 'foul'){
             const player = data.player;
             const foulCount = data.foulCount;
-            const foulType = data.message || 'Illegal move';
+            const foulType = 'Illegal move';
 
-            // Record to corresponding foul table
             if (player === 'red') {
                 document.getElementById('redFoulBody')
                     .insertAdjacentHTML('beforeend', `<tr><td>${foulCount}</td><td>${foulType}</td></tr>`);
@@ -456,22 +1071,18 @@
         }
 
         if(data.result === 'repeated_move'){
-            const player = data.player;
-            updateStatusBar(`Perpetual check or chase forbidden! Please choose another move`, 'lose-message');
+            updateStatusBar(`Perpetual check/chase prohibited! Please choose another move`, 'lose-message');
             return;
         }
 
         if(data.result === 'ok'){
-            // Apply move
             applyUci(data.move);
             currentTurn = data.turn;
             draw();
 
-            // Update status bar
             const playerName = data.player === 'red' ? 'Red' : 'Black';
             let statusMessage = `${playerName} moved, ${currentTurn === 'RED' ? 'Red' : 'Black'}'s turn`;
 
-            // Handle check status
             if (data.redInCheck) {
                 statusMessage += ' - Red in check!';
             } else if (data.blackInCheck) {
@@ -485,20 +1096,20 @@
     function handleGameResult(data) {
         locked = true;
         gameStatus = 'finished';
+        gameOver = true;
 
-        let message = data.resultDescription || data.gameResult || 'Game over';
+        let message = data.resultDescription || data.gameResult || 'Game ended';
 
         updateStatusBar(message, 'game-over');
         showGameOverMessage(message);
 
-        // Apply final move
         if (data.move) applyUci(data.move);
         draw();
 
-        // Auto export foul CSV - only contains sequence number and type
         if (redFoulRows.length > 0 || blackFoulRows.length > 0) {
+            const basePath = API_PATHS[currentMode];
             const winner = data.winner === 'RED' ? 'red' : 'black';
-            fetch('/individual/game/end', {
+            fetch(`${basePath}/game/end`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({winner: winner, reason: data.gameResult})
@@ -506,11 +1117,427 @@
         }
     }
 
-    /* ========== Startup ========== */
+    // Continuous battle settings
+    function setContinuousBattle() {
+        const input = document.getElementById('maxGames');
+        const value = parseInt(input.value);
+
+        if (isNaN(value) || value < 1 || value > 100) {
+            alert('Please enter a valid number between 1 and 100');
+            input.value = maxGames;
+            return;
+        }
+
+        maxGames = value;
+        continuousBattleEnabled = true;
+
+        const statusDiv = document.getElementById('continuousStatus');
+        statusDiv.textContent = `Continuous battle enabled: ${maxGames} games`;
+        statusDiv.style.display = 'block';
+        statusDiv.style.backgroundColor = '#f0f9ff';
+        statusDiv.style.color = '#0066cc';
+
+        console.log(`Continuous battle settings: ${maxGames} games`);
+    }
+
+    // Start AI battle (supports continuous)
+    async function startAIBattle() {
+        if (isAIBattleRunning) {
+            alert('AI battle in progress, please stop current battle first');
+            return;
+        }
+
+        if (continuousBattleEnabled) {
+            await startContinuousAIBattle();
+        } else {
+            await startSingleAIBattle();
+        }
+    }
+
+    // Single AI battle
+    async function startSingleAIBattle() {
+        if (isAIBattleRunning) return;
+
+        try {
+            console.log(`[${currentMode}] Starting single AI battle, current config:`, aiConfig);
+
+            // First send model config to backend
+            console.log(`[${currentMode}] Sending model config to backend...`);
+            const configSuccess = await updateAIModels();
+            if (!configSuccess) {
+                // Stop if config fails
+                return;
+            }
+
+            const basePath = API_PATHS[currentMode];
+
+            // Then reset game
+            console.log(`[${currentMode}] Resetting game...`);
+            await fetch(`${basePath}/new`, {method:'POST'});
+
+            // Initialize AI battle game
+            console.log(`[${currentMode}] Initializing AI battle game...`);
+            const response = await fetch(`${basePath}/ai/new`, {method:'POST'});
+            const data = await response.json();
+
+            if (data.status === 'new_ai_game_ready') {
+                // Reset board
+                board = initialBoard();
+                select = null;
+                moveCount = 0;
+                locked = true; // lock manual operation
+                gameStatus = 'playing';
+                currentTurn = 'RED';
+                gameOver = false;
+                lastMove = null;
+
+                // Clear foul tables
+                updateFoulTables([], []);
+
+                // Prepare model names for display
+                let redModelDisplay = aiConfig.red === 'Default' ?
+                    (currentMode === 'zero-shot' ? 'DeepSeek' : 'DeepSeekCoT') : aiConfig.red;
+                let blackModelDisplay = aiConfig.black === 'Default' ?
+                    (currentMode === 'zero-shot' ? 'Gemini' : 'GeminiCoT') : aiConfig.black;
+
+                console.log(`[${currentMode}] Battle config: ${redModelDisplay}(Red) vs ${blackModelDisplay}(Black)`);
+
+                // Update status bar
+                updateStatusBar(`AI battle ready: ${redModelDisplay}(Red) vs ${blackModelDisplay}(Black)`);
+                hideGameOverMessage();
+                draw();
+
+                // Start AI battle
+                const startResponse = await fetch(`${basePath}/ai/start`, {method:'POST'});
+                const startData = await startResponse.json();
+
+                if (startData.status === 'started') {
+                    isAIBattleRunning = true;
+                    updateStatusBar(`AI battle started: ${redModelDisplay}(Red) vs ${blackModelDisplay}(Black)`);
+
+                    // Start battle loop
+                    await runAIBattle();
+                } else {
+                    alert('Start AI battle failed: ' + (startData.message || 'Unknown error'));
+                    locked = false; // unlock manual operation
+                }
+            } else {
+                alert('Initialize AI battle failed: ' + (data.message || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error(`[${currentMode}] Start AI battle failed:`, error);
+            alert('Start AI battle failed: ' + error.message);
+            locked = false; // unlock manual operation
+        }
+    }
+
+    // Continuous AI battle
+    async function startContinuousAIBattle() {
+        if (isAIBattleRunning) return;
+
+        // Set model config once before starting
+        console.log(`[${currentMode}] Continuous battle: setting model config...`);
+        const configSuccess = await updateAIModels();
+        if (!configSuccess) {
+            alert('Model config failed, cannot start continuous battle');
+            return;
+        }
+
+        isAIBattleRunning = true;
+        currentGame = 0;
+        continuousResults = [];
+
+        const statusDiv = document.getElementById('continuousStatus');
+        statusDiv.textContent = `Continuous battle in progress: ${currentGame}/${maxGames} games`;
+        statusDiv.style.backgroundColor = '#fff3cd';
+        statusDiv.style.color = '#856404';
+        statusDiv.style.display = 'block';
+
+        // Disable model selection buttons and start button
+        document.getElementById('redModelBtn').disabled = true;
+        document.getElementById('blackModelBtn').disabled = true;
+        document.getElementById('startBattleBtn').disabled = true;
+
+        try {
+            console.log(`[${currentMode}] Starting continuous AI battle, config:`, aiConfig, `total games: ${maxGames}`);
+
+            while (currentGame < maxGames && isAIBattleRunning) {
+                currentGame++;
+                console.log(`Game ${currentGame}/${maxGames} started`);
+
+                // Execute single game
+                const gameResult = await runSingleAIBattle(currentGame);
+
+                // Record result
+                continuousResults.push(gameResult);
+
+                // Update status display
+                statusDiv.textContent = `Continuous battle in progress: ${currentGame}/${maxGames} games`;
+
+                // If not the last game, delay
+                if (currentGame < maxGames) {
+                    await delay(1000);
+                }
+            }
+
+            // Continuous battle completed
+            statusDiv.textContent = `Continuous battle completed: ${maxGames} games`;
+            statusDiv.style.backgroundColor = '#d4edda';
+            statusDiv.style.color = '#155724';
+
+            // Output result statistics to console
+            const redWins = continuousResults.filter(r => r.winner === 'RED').length;
+            const blackWins = continuousResults.filter(r => r.winner === 'BLACK').length;
+            const draws = continuousResults.filter(r => r.winner === 'draw' || r.result?.includes('draw')).length;
+            console.log(`Continuous battle completed, Red wins: ${redWins}, Black wins: ${blackWins}, Draws: ${draws}`);
+
+            updateStatusBar(`Continuous battle completed: Red ${redWins} Black ${blackWins} Draws ${draws}`);
+
+        } catch (error) {
+            console.error('Continuous battle error:', error);
+            statusDiv.textContent = `Continuous battle error: ${error.message}`;
+            statusDiv.style.backgroundColor = '#f8d7da';
+            statusDiv.style.color = '#721c24';
+        } finally {
+            isAIBattleRunning = false;
+            // Restore buttons
+            document.getElementById('redModelBtn').disabled = false;
+            document.getElementById('blackModelBtn').disabled = false;
+            document.getElementById('startBattleBtn').disabled = false;
+        }
+    }
+
+    // Single game execution function (for continuous mode)
+    async function runSingleAIBattle(gameNumber) {
+        const basePath = API_PATHS[currentMode];
+
+        // Reset backend game
+        await fetch(`${basePath}/new`, {method:'POST'});
+
+        // Initialize AI battle
+        const initResponse = await fetch(`${basePath}/ai/new`, {method:'POST'});
+        const initData = await initResponse.json();
+
+        if (initData.status !== 'new_ai_game_ready') {
+            throw new Error(`Initialization failed: ${initData.message || 'Unknown error'}`);
+        }
+
+        // Reset frontend board
+        board = initialBoard();
+        select = null;
+        moveCount = 0;
+        locked = true;
+        gameStatus = 'playing';
+        currentTurn = 'RED';
+        gameOver = false;
+        lastMove = null;
+
+        // Clear foul tables
+        updateFoulTables([], []);
+
+        // Prepare model names for display (only for logs)
+        let redModelDisplay = aiConfig.red === 'Default' ?
+            (currentMode === 'zero-shot' ? 'DeepSeek' : 'DeepSeekCoT') : aiConfig.red;
+        let blackModelDisplay = aiConfig.black === 'Default' ?
+            (currentMode === 'zero-shot' ? 'Gemini' : 'GeminiCoT') : aiConfig.black;
+
+        // Start battle
+        const startResponse = await fetch(`${basePath}/ai/start`, {method:'POST'});
+        const startData = await startResponse.json();
+        if (startData.status !== 'started') {
+            throw new Error(`Start failed: ${startData.message || 'Unknown error'}`);
+        }
+
+        // Update status bar
+        updateStatusBar(`Game ${gameNumber} started: ${redModelDisplay}(Red) vs ${blackModelDisplay}(Black)`);
+        draw();
+
+        // Poll until game ends
+        let gameResult = null;
+        while (isAIBattleRunning && !gameOver) {
+            try {
+                const response = await fetch(`${basePath}/ai/next-round`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'}
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    // Apply AI moves
+                    if (data.aiMove) {
+                        applyUci(data.aiMove);
+                        draw();
+                    }
+
+                    // Update foul tables
+                    if (data.redFoulRecords || data.blackFoulRecords) {
+                        updateFoulTables(data.redFoulRecords, data.blackFoulRecords);
+                    }
+
+                    if (data.gameOver) {
+                        // Game ended
+                        gameResult = {
+                            gameNumber,
+                            winner: data.winner,
+                            result: data.gameResult || 'Game ended',
+                            rounds: data.round || 0
+                        };
+                        gameOver = true;
+                        // Show this game's result
+                        showGameOverMessage(`Game ${gameNumber} ended: ${data.gameResult}`);
+                        updateStatusBar(`Game ${gameNumber} ended: ${data.gameResult}`, data.winner === 'RED' ? 'win-message' : 'lose-message');
+                        break;
+                    } else {
+                        // Update current turn
+                        currentTurn = data.turn;
+                        // Delay for observation
+                        await delay(1000);
+                    }
+                } else {
+                    if (data.gameOver) {
+                        gameResult = {
+                            gameNumber,
+                            winner: data.winner,
+                            result: data.gameResult || 'Game ended abnormally',
+                            rounds: data.round || 0
+                        };
+                        gameOver = true;
+                        showGameOverMessage(`Game ${gameNumber} ended: ${data.gameResult}`);
+                        updateStatusBar(`Game ${gameNumber} ended: ${data.gameResult}`, data.winner === 'RED' ? 'win-message' : 'lose-message');
+                        break;
+                    } else {
+                        throw new Error(data.error || 'Unknown error');
+                    }
+                }
+            } catch (error) {
+                console.error('Single game round error:', error);
+                gameResult = {
+                    gameNumber,
+                    winner: 'error',
+                    result: `error: ${error.message}`,
+                    rounds: 0
+                };
+                gameOver = true;
+                showGameOverMessage(`Game ${gameNumber} error: ${error.message}`);
+                updateStatusBar(`Game ${gameNumber} error: ${error.message}`, 'lose-message');
+                break;
+            }
+        }
+
+        locked = false; // unlock (though continuous mode won't operate)
+        return gameResult;
+    }
+
+    // General battle loop (for single mode original)
+    async function runAIBattle() {
+        const basePath = API_PATHS[currentMode];
+
+        while (isAIBattleRunning && !gameOver) {
+            try {
+                // Poll for next AI round
+                const response = await fetch(`${basePath}/ai/next-round`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'}
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Apply AI moves
+                    if (data.aiMove) {
+                        applyUci(data.aiMove);
+                        draw();
+
+                        // Update status bar with AI move
+                        const player = currentTurn === 'RED' ? 'Red' : 'Black';
+                        const aiModel = currentTurn === 'RED' ? aiConfig.red : aiConfig.black;
+                        const displayModel = aiModel === 'Default' ?
+                            (currentTurn === 'RED' ?
+                                (currentMode === 'zero-shot' ? 'DeepSeek' : 'DeepSeekCoT') :
+                                (currentMode === 'zero-shot' ? 'Gemini' : 'GeminiCoT')) : aiModel;
+                        updateStatusBar(`${player}(${displayModel}) move: ${data.aiMove}`);
+                    }
+
+                    // Update foul tables
+                    if (data.redFoulRecords || data.blackFoulRecords) {
+                        updateFoulTables(data.redFoulRecords, data.blackFoulRecords);
+
+                        // If new fouls, show hint
+                        if (data.hasNewFoul) {
+                            let foulMessage = '';
+                            if (data.newRedFouls && data.newRedFouls.length > 0) {
+                                foulMessage += `Red added ${data.newRedFouls.length} foul(s) `;
+                            }
+                            if (data.newBlackFouls && data.newBlackFouls.length > 0) {
+                                foulMessage += `Black added ${data.newBlackFouls.length} foul(s)`;
+                            }
+                            if (foulMessage) {
+                                console.log(foulMessage);
+                            }
+                        }
+                    }
+
+                    if (data.gameOver) {
+                        // Game ended
+                        handleAIGameResult(data);
+                        break;
+                    } else {
+                        // Update current turn
+                        currentTurn = data.turn;
+
+                        // Delay for observation
+                        await delay(1500);
+                    }
+                } else {
+                    if (data.gameOver) {
+                        handleAIGameResult(data);
+                    } else {
+                        showGameOverMessage('AI battle error: ' + (data.error || 'Unknown error'), false);
+                    }
+                    break;
+                }
+            } catch (error) {
+                console.error('AI battle round error:', error);
+                showGameOverMessage('AI battle round error: ' + error.message, false);
+                break;
+            }
+        }
+
+        isAIBattleRunning = false;
+        locked = false;
+    }
+
+    async function handleAIGameResult(data) {
+        gameOver = true;
+        isAIBattleRunning = false;
+        locked = false;
+
+        let message = data.gameResult || 'Game ended';
+        let isWin = data.winner === 'RED';
+
+        // Update foul tables
+        if (data.redFoulRecords || data.blackFoulRecords) {
+            updateFoulTables(data.redFoulRecords, data.blackFoulRecords);
+        }
+
+        showGameOverMessage(message);
+        updateStatusBar(message, isWin ? 'win-message' : 'lose-message');
+
+        // Apply last move
+        if (data.move) applyUci(data.move);
+        draw();
+    }
+
+    function delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    // Startup
     (async function(){
         await preload();
         await loadTableData();
         await newGame();
+        updateConfigDisplay();
     })();
 </script>
 </body>

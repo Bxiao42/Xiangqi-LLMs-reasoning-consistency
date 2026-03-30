@@ -1,8 +1,9 @@
+<!-- play.html -->
 <!DOCTYPE html>
 <html lang="zh">
 <head>
     <meta charset="UTF-8" />
-    <title>Player vs AI - Chinese Chess</title>
+    <title>AI vs Pikafish</title>
     <style>
         :root{ --cell:50px; }
         body{
@@ -33,9 +34,15 @@
         }
         .toolbar{
             display:flex;
+            flex-direction: column;
             gap:8px;
             align-items:center;
-            flex-wrap:wrap;
+        }
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: center;
         }
         button{
             padding:8px 14px;
@@ -44,9 +51,14 @@
             background:#fff;
             cursor:pointer;
             font-size:14px;
+            width: 160px;
         }
         button:hover{
             box-shadow:0 4px 12px rgba(0,0,0,.08);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
         }
         h3{
             margin:.2rem 0;
@@ -70,60 +82,87 @@
             font-weight: 600;
         }
         #foulTable{
-            width:360px;
+            width:300px;
         }
         .hint{
             color:#888;
             font-size:12px;
+            text-align: center;
+            margin-top: 8px;
         }
-        #statusBar{
-            margin:15px 0;
-            padding:10px 12px;
-            border:1px solid #e0e0e0;
-            background:#f8f9fa;
-            border-radius:8px;
-            color:#444;
-            min-height: 20px;
+        #rightCol {
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+            margin-left: 60px;
+            flex: 1;
+        }
+        .game-container {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+        }
+        #gameOverMessage {
+            display: none;
+            padding: 12px 16px;
+            border-radius: 8px;
             font-weight: 500;
+            text-align: center;
         }
-
-        .game-over {
-            background: #fff3cd !important;
-            border-color: #ffeaa7 !important;
-            color: #856404 !important;
-            font-weight: bold !important;
+        .loading {
+            opacity: 0.6;
+            cursor: not-allowed;
         }
-
         .win-message {
             background: #d1ecf1 !important;
             border-color: #bee5eb !important;
             color: #0c5460 !important;
         }
-
         .lose-message {
             background: #f8d7da !important;
             border-color: #f5c6cb !important;
             color: #721c24 !important;
         }
 
-        #rightCol {
+        /* Continuous battle settings styles */
+        .continuous-settings {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
             display: flex;
             flex-direction: column;
-            gap: 25px;
-            margin-left: 60px;
+            gap: 8px;
+            align-items: center;
+        }
+        .continuous-settings label {
+            font-size: 14px;
+            color: #666;
+        }
+        .continuous-settings input {
+            width: 60px;
+            padding: 4px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .continuous-settings button {
+            width: 80px;
+            padding: 4px 12px;
+            font-size: 13px;
         }
 
-        .game-container {
-            display: flex;
-            justify-content: space-between;
-            width: 100%;
-        }
-
-        #gameOverMessage {
+        /* Continuous battle status display */
+        #continuousStatus {
             display: none;
-            padding: 12px 16px;
+            background: #f0f9ff;
+            border: 1px solid #b6e3ff;
             border-radius: 8px;
-            font-weight: 500;
+            padding: 8px 12px;
+            margin-top: 5px;
+            font-size: 13px;
+            color: #0066cc;
             text-align: center;
         }
     </style>
@@ -134,27 +173,53 @@
         <div id="leftCol">
             <canvas id="board" width="450" height="500"></canvas>
             <div class="toolbar">
-                <button onclick="newGame()">New Game</button>
-                <span class="hint">Red moves first: Click to select piece, then click target square</span>
+                <div class="button-group">
+                    <button onclick="newGame()">New game</button>
+                    <button id="deepseekBtn" onclick="startDeepSeekAIBattle()">deepseek-chat</button>
+                    <button id="deepseekCotBtn" onclick="startDeepSeekAIBattleCot()">deepseek-reasoner</button>
+                    <!-- OpenAI buttons -->
+                    <button id="openaiBtn" onclick="startOpenAIAIBattle()">gpt-5-mini</button>
+                    <button id="openaiCotBtn" onclick="startOpenAIAIBattleCot()">gpt-5.2</button>
+                    <!-- Gemini buttons -->
+                    <button id="geminiBtn" onclick="startGeminiAIBattle()">gemini-2.5-flash</button>
+                    <button id="geminiCotBtn" onclick="startGeminiAIBattleCot()">gemini-2.5-pro</button>
+                </div>
+
+                <!-- Continuous battle settings -->
+                <div class="continuous-settings">
+                    <label for="maxGames">Number of battlefields: </label>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <input type="number" id="maxGames" min="1" max="100" value="3">
+                        <button onclick="setContinuousBattle()">Confirm</button>
+                    </div>
+                    <div id="continuousStatus"></div>
+                </div>
             </div>
         </div>
 
         <div id="rightCol">
-            <div id="statusBar">Status: Game preparing...</div>
-
             <div id="gameOverMessage"></div>
 
-            <h3>Foul Records</h3>
+            <h3>Error Records</h3>
             <table id="foulTable">
-                <thead><tr><th>#</th><th>Type</th></tr></thead>
-                <tbody id="foulBody"></tbody>
+                <thead>
+                <tr>
+                    <th>Round</th>
+                    <th>Type</th>
+                </tr>
+                </thead>
+                <tbody id="foulBody">
+                <tr>
+                    <td colspan="2" style="text-align: center; color: #999;">No error records yet</td>
+                </tr>
+                </tbody>
             </table>
         </div>
     </div>
 </div>
 
 <script>
-    /* ========== Canvas & DPR ========== */
+    // Canvas & DPR
     const cvs = document.getElementById('board');
     const ctx = cvs.getContext('2d');
     const DPR = window.devicePixelRatio || 1;
@@ -165,10 +230,10 @@
     cvs.height = Math.round(LOGICAL_H * DPR);
     ctx.scale(DPR, DPR);
 
-    /* ========== Fixed padding ========== */
+    // Fixed padding
     const PAD_L = 24, PAD_R = 24, PAD_T = 22, PAD_B = 22;
 
-    /* ========== Geometry ========== */
+    // Geometry
     const OUT_W = LOGICAL_W, OUT_H = LOGICAL_H;
     const COLS = 9, ROWS = 10;
     const INNER_X = PAD_L;
@@ -178,7 +243,7 @@
     const CELL_W  = INNER_W / COLS;
     const CELL_H  = INNER_H / ROWS;
 
-    /* ========== Resources & Game state ========== */
+    // Resources & Game state
     const RED='r', BLACK='b';
     const SPRITES = {
         board: '/images/MAIN.GIF',
@@ -201,12 +266,16 @@
     }
 
     let board = initialBoard();
-    let select = null;
-    let locked = false;
-    let gameStatus = 'preparing';
+    let gameOver = false;
+    let isAIBattleRunning = false;
+    let currentAIMode = ''; // 'deepseek-zeroshot', 'deepseek-cot', 'openai-zeroshot', 'openai-cot', 'gemini-zeroshot', 'gemini-cot'
 
-    /* —— Memory rows for CSV —— */
-    let foulRows  = []; // Each row: [#, Type]
+    // Continuous battle related variables
+    let continuousBattleEnabled = false;
+    let maxGames = 3;
+    let currentGame = 0;
+    let continuousTaskId = null;
+    let continuousResults = [];
 
     function initialBoard(){
         const B = Array.from({length:ROWS}, ()=>Array(COLS).fill(null));
@@ -224,7 +293,7 @@
     }
     function put(B,r,c,s,t){ B[r][c]={s,t}; }
 
-    /* ========== Drawing ========== */
+    // Drawing
     function drawPieces(){
         const size = Math.min(CELL_W, CELL_H) * 0.86, rds = size/2;
         for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
@@ -245,45 +314,10 @@
     function draw(){
         ctx.clearRect(0,0,OUT_W,OUT_H);
         if(IMGS.board){ ctx.drawImage(IMGS.board, 0, 0, OUT_W, OUT_H); }
-        if(select){
-            ctx.fillStyle='rgba(0,128,255,.12)';
-            ctx.fillRect(INNER_X + select.c*CELL_W, INNER_Y + select.r*CELL_H, CELL_W, CELL_H);
-        }
         drawPieces();
     }
 
-    /* ========== Click detection ========== */
-    function hitToCell(x,y){
-        const gx = x - INNER_X, gy = y - INNER_Y;
-        if(gx < 0 || gy < 0 || gx > INNER_W || gy > INNER_H) return null;
-        const c = Math.floor(gx / CELL_W);
-        const r = Math.floor(gy / CELL_H);
-        if(c<0||c>=COLS||r<0||r>=ROWS) return null;
-        return {r,c};
-    }
-
-    cvs.addEventListener('click', async e=>{
-        if (locked || gameStatus === 'finished') return;
-        const rect = cvs.getBoundingClientRect();
-        const x = (e.clientX - rect.left);
-        const y = (e.clientY - rect.top);
-        const cell = hitToCell(x,y);
-        if(!cell) return;
-
-        const {r,c} = cell;
-        if(!select){
-            const p = board[r][c];
-            if(p && p.s===RED){ select={r,c}; draw(); }
-            return;
-        }else{
-            const from = {...select};
-            select = null; draw();
-            if(from.r===r && from.c===c) return;
-            await doMove(from.r, from.c, r, c);
-        }
-    });
-
-    /* ========== UCI application & tables ========== */
+    // UCI application
     function applyUci(uci){
         if (!uci || uci.length < 4) return;
         const fromC = uci.charCodeAt(0) - 97;
@@ -291,24 +325,33 @@
         const toC   = uci.charCodeAt(2) - 97;
         const toR   = 9 - parseInt(uci[3],10);
         const p = board[fromR][fromC];
-        if(!p) return;
+        if(!p) {
+            console.error('No piece found at:', fromR, fromC);
+            return;
+        }
         board[toR][toC] = p;
         board[fromR][fromC] = null;
-    }
-    function pushFoul(cnt, type = 'Illegal move'){
-        document.getElementById('foulBody')
-            .insertAdjacentHTML('beforeend', `<tr><td>${cnt}</td><td>${type}</td></tr>`);
-        foulRows.push([cnt, type]);
+        console.log(`Applied move: ${uci}`);
     }
 
-    /* ========== Status updates ========== */
-    function updateStatusBar(message, type = 'normal') {
-        const bar = document.getElementById('statusBar');
-        bar.textContent = `Status: ${message}`;
-        bar.className = '';
-        if (type === 'game-over') bar.classList.add('game-over');
-        if (type === 'win-message') bar.classList.add('win-message');
-        if (type === 'lose-message') bar.classList.add('lose-message');
+    // Error records
+    function updateFoulTable(fouls) {
+        const foulBody = document.getElementById('foulBody');
+        foulBody.innerHTML = '';
+
+        if (fouls.length === 0) {
+            foulBody.innerHTML = '<tr><td colspan="2" style="text-align: center; color: #999;">No error records yet</td></tr>';
+            return;
+        }
+
+        fouls.forEach(foul => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${foul.round}</td>
+                <td>${foul.type}</td>
+            `;
+            foulBody.appendChild(row);
+        });
     }
 
     function showGameOverMessage(message, isWin = false) {
@@ -329,102 +372,612 @@
         document.getElementById('gameOverMessage').className = '';
     }
 
-    /* ========== Game control ========== */
-    async function newGame(){
-        // Reset state
-        foulRows  = [];
-        locked = false;
-        gameStatus = 'playing';
+    // Continuous battle settings
+    function setContinuousBattle() {
+        const input = document.getElementById('maxGames');
+        const value = parseInt(input.value);
 
-        await fetch('/api/xq/new', {method:'POST'});
-        board = initialBoard();
-        select = null;
+        if (isNaN(value) || value < 1 || value > 100) {
+            alert('Please enter a valid number between 1 and 100');
+            input.value = maxGames;
+            return;
+        }
 
-        document.getElementById('foulBody').innerHTML = '';
-        updateStatusBar('Game started - Red moves first');
-        hideGameOverMessage();
-        draw();
+        maxGames = value;
+        continuousBattleEnabled = true;
+
+        const statusDiv = document.getElementById('continuousStatus');
+        statusDiv.textContent = `Continuous battle enabled: ${maxGames} games`;
+        statusDiv.style.display = 'block';
+        statusDiv.style.backgroundColor = '#f0f9ff';
+        statusDiv.style.color = '#0066cc';
+
+        console.log(`Continuous battle settings: ${maxGames} games`);
     }
 
-    /* ========== Backend communication ========== */
-    async function doMove(fromR,fromC,toR,toC){
-        try{
-            const res = await fetch('/api/xq/move',{
-                method:'POST',
-                headers:{'Content-Type':'application/json'},
-                body:JSON.stringify({fromR,fromC,toR,toC})
+    // Continuous battle function
+    async function startContinuousAIBattle(aiType, isCot = false) {
+        if (isAIBattleRunning) return;
+
+        if (!continuousBattleEnabled) {
+            // If continuous battle not enabled, call single battle directly
+            if (isCot) {
+                await startAIBattleCot(aiType);
+            } else {
+                await startAIBattle(aiType);
+            }
+            return;
+        }
+
+        isAIBattleRunning = true;
+        currentGame = 0;
+        continuousResults = [];
+        continuousTaskId = Date.now().toString();
+
+        console.log(`Starting continuous battle: ${aiType} (${maxGames} games)`);
+
+        // Update status display
+        const statusDiv = document.getElementById('continuousStatus');
+        statusDiv.textContent = `Continuous battle in progress: ${currentGame}/${maxGames} games`;
+        statusDiv.style.backgroundColor = '#fff3cd';
+        statusDiv.style.color = '#856404';
+        statusDiv.style.display = 'block';
+
+        try {
+            // Disable all AI buttons
+            disableAllAIButtons();
+            hideGameOverMessage();
+
+            while (currentGame < maxGames && isAIBattleRunning) {
+                currentGame++;
+                console.log(`Game ${currentGame}/${maxGames} started`);
+
+                // Reset board and game state
+                await resetForContinuousBattle();
+
+                // Start a game
+                let gameResult = null;
+                if (isCot) {
+                    gameResult = await runSingleContinuousBattleCot(aiType);
+                } else {
+                    gameResult = await runSingleContinuousBattle(aiType);
+                }
+
+                // Record result
+                if (gameResult) {
+                    continuousResults.push({
+                        game: currentGame,
+                        result: gameResult.result,
+                        winner: gameResult.winner,
+                        rounds: gameResult.rounds
+                    });
+
+                    console.log(`Game ${currentGame} result: ${gameResult.result}`);
+                }
+
+                // Update status display
+                statusDiv.textContent = `Continuous battle in progress: ${currentGame}/${maxGames} games`;
+
+                // If not the last game, delay
+                if (currentGame < maxGames) {
+                    await delay(1000);
+                }
+            }
+
+            // Show only brief completion message, not detailed stats
+            statusDiv.textContent = `Continuous battle completed: ${maxGames} games`;
+            statusDiv.style.backgroundColor = '#d4edda';
+            statusDiv.style.color = '#155724';
+
+            // Output detailed stats to console (optional)
+            console.log(`Continuous battle completed: ${aiType}, ${maxGames} games`);
+
+        } catch (error) {
+            console.error(`Continuous battle error: ${error.message}`);
+            showGameOverMessage(`Continuous battle error: ${error.message}`, false);
+        } finally {
+            // Enable all buttons
+            enableAllAIButtons();
+            isAIBattleRunning = false;
+        }
+    }
+
+    async function runSingleContinuousBattle(aiType) {
+        try {
+            // Start new game
+            const response = await fetch(`/api/xiangqi/ai-battle/new?aiType=${encodeURIComponent(aiType)}`, {
+                method: 'POST'
             });
-            const data = await res.json();
-            handleMoveResult(data);
 
-        }catch(err){
-            alert('Communication failed: ' + err);
-        }
-    }
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
 
-    function handleMoveResult(data) {
-        const bar = document.getElementById('statusBar');
-
-        if (data.result === 'game_over') {
-            locked = true;
-            gameStatus = 'finished';
-            handleGameResult(data);
-            return;
-        }
-
-        if(data.result === 'foul'){
-            pushFoul(data.foulCount, data.message || 'Illegal move');
-            updateStatusBar('Illegal move! Please choose a legal move', 'lose-message');
-            return;
-        }
-
-        if(data.result === 'ok'){
-            // Apply moves
-            applyUci(data.playerMove);
-            if (data.aiMove) applyUci(data.aiMove);
+            // Reset board
+            board = initialBoard();
+            updateFoulTable([]);
             draw();
 
-            // Handle check status
-            if (data.meInCheck) {
-                updateStatusBar('You are in check! Please resolve check', 'game-over');
-            } else if (data.oppInCheck) {
-                updateStatusBar('Opponent is in check', 'normal');
-            } else {
-                updateStatusBar('In progress', 'normal');
+            // Run single game
+            let gameResult = null;
+            let gameOver = false;
+
+            while (!gameOver) {
+                const roundResponse = await fetch('/api/xiangqi/ai-battle/next-round', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'}
+                });
+
+                const data = await roundResponse.json();
+
+                if (data.success) {
+                    // Apply moves
+                    if (data.aiMove) applyUci(data.aiMove);
+                    if (data.pikafishMove) applyUci(data.pikafishMove);
+
+                    draw();
+
+                    if (data.gameOver) {
+                        gameOver = true;
+                        gameResult = {
+                            result: data.gameResult || 'Game ended',
+                            winner: data.winner || 'unknown',
+                            rounds: data.round || 0
+                        };
+
+                        // Update error records
+                        await updateFoulRecords();
+                    } else {
+                        // Delay for observation
+                        await delay(1000);
+                    }
+                } else {
+                    if (data.gameOver) {
+                        gameOver = true;
+                        gameResult = {
+                            result: data.gameResult || 'Game ended abnormally',
+                            winner: data.winner || 'error',
+                            rounds: data.round || 0
+                        };
+                    } else {
+                        throw new Error(data.error || 'Unknown error');
+                    }
+                }
             }
+
+            return gameResult;
+
+        } catch (error) {
+            console.error(`Single game error: ${error.message}`);
+            return {
+                result: `error: ${error.message}`,
+                winner: 'error',
+                rounds: 0
+            };
         }
     }
 
-    function handleGameResult(data) {
-        locked = true;
-        gameStatus = 'finished';
+    async function runSingleContinuousBattleCot(aiType) {
+        try {
+            // Start new game
+            const response = await fetch(`/api/xiangqi-cot/ai-battle/new?aiType=${encodeURIComponent(aiType)}`, {
+                method: 'POST'
+            });
 
-        let message = data.resultDescription || data.gameResult || 'Game over';
-        let isWin = false;
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
 
-        if (data.result === 'game_over') {
-            if (data.winner === 'RED') {
-                message = 'Congratulations! You checkmated the AI!';
-                isWin = true;
-            } else if (data.winner === 'BLACK') {
-                message = 'AI checkmated you!';
-            } else {
-                message = data.gameResult || 'Draw!';
+            // Reset board
+            board = initialBoard();
+            updateFoulTable([]);
+            draw();
+
+            // Run single game
+            let gameResult = null;
+            let gameOver = false;
+
+            while (!gameOver) {
+                const roundResponse = await fetch('/api/xiangqi-cot/ai-battle/next-round', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'}
+                });
+
+                const data = await roundResponse.json();
+
+                if (data.success) {
+                    // Apply moves
+                    if (data.aiMove) applyUci(data.aiMove);
+                    if (data.pikafishMove) applyUci(data.pikafishMove);
+
+                    draw();
+
+                    if (data.gameOver) {
+                        gameOver = true;
+                        gameResult = {
+                            result: data.gameResult || 'Game ended',
+                            winner: data.winner || 'unknown',
+                            rounds: data.round || 0
+                        };
+
+                        // Update error records
+                        await updateFoulRecordsCot();
+                    } else {
+                        // Delay for observation
+                        await delay(1000);
+                    }
+                } else {
+                    if (data.gameOver) {
+                        gameOver = true;
+                        gameResult = {
+                            result: data.gameResult || 'Game ended abnormally',
+                            winner: data.winner || 'error',
+                            rounds: data.round || 0
+                        };
+                    } else {
+                        throw new Error(data.error || 'Unknown error');
+                    }
+                }
+            }
+
+            return gameResult;
+
+        } catch (error) {
+            console.error(`Single game error: ${error.message}`);
+            return {
+                result: `error: ${error.message}`,
+                winner: 'error',
+                rounds: 0
+            };
+        }
+    }
+
+    async function resetForContinuousBattle() {
+        // Reset board
+        board = initialBoard();
+        updateFoulTable([]);
+        hideGameOverMessage();
+        gameOver = false;
+        draw();
+    }
+
+    // Game control
+    async function newGame(){
+        isAIBattleRunning = false;
+        gameOver = false;
+        currentAIMode = '';
+
+        try {
+            // Reset board
+            board = initialBoard();
+            updateFoulTable([]);
+            hideGameOverMessage();
+
+            // Enable all buttons
+            enableAllAIButtons();
+
+            draw();
+
+        } catch (error) {
+            console.error('New game initialization failed:', error);
+            showGameOverMessage('Game initialization failed: ' + error.message, false);
+        }
+    }
+
+    // DeepSeek AI battle functions
+    async function startDeepSeekAIBattle() {
+        if (continuousBattleEnabled) {
+            await startContinuousAIBattle('DeepSeek', false);
+        } else {
+            await startAIBattle('DeepSeek');
+        }
+    }
+
+    async function startDeepSeekAIBattleCot() {
+        if (continuousBattleEnabled) {
+            await startContinuousAIBattle('DeepSeek CoT', true);
+        } else {
+            await startAIBattleCot('DeepSeek CoT');
+        }
+    }
+
+    // OpenAI AI battle functions
+    async function startOpenAIAIBattle() {
+        if (continuousBattleEnabled) {
+            await startContinuousAIBattle('OpenAI', false);
+        } else {
+            await startAIBattle('OpenAI');
+        }
+    }
+
+    async function startOpenAIAIBattleCot() {
+        if (continuousBattleEnabled) {
+            await startContinuousAIBattle('OpenAI CoT', true);
+        } else {
+            await startAIBattleCot('OpenAI CoT');
+        }
+    }
+
+    // Gemini AI battle functions
+    async function startGeminiAIBattle() {
+        if (continuousBattleEnabled) {
+            await startContinuousAIBattle('Gemini', false);
+        } else {
+            await startAIBattle('Gemini');
+        }
+    }
+
+    async function startGeminiAIBattleCot() {
+        if (continuousBattleEnabled) {
+            await startContinuousAIBattle('Gemini CoT', true);
+        } else {
+            await startAIBattleCot('Gemini CoT');
+        }
+    }
+
+    // General AI battle start functions
+    async function startAIBattle(aiType) {
+        if (isAIBattleRunning) return;
+
+        isAIBattleRunning = true;
+        if (aiType === 'DeepSeek') {
+            currentAIMode = 'deepseek-zeroshot';
+        } else if (aiType === 'OpenAI') {
+            currentAIMode = 'openai-zeroshot';
+        } else if (aiType === 'Gemini') {
+            currentAIMode = 'gemini-zeroshot';
+        }
+
+        try {
+            disableAllAIButtons();
+            hideGameOverMessage();
+
+            // Start new game, specifying AI type
+            const response = await fetch(`/api/xiangqi/ai-battle/new?aiType=${encodeURIComponent(aiType)}`, {
+                method: 'POST'
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            // Reset board
+            board = initialBoard();
+            updateFoulTable([]);
+            draw();
+
+            // Start battle loop
+            await runAIBattle();
+
+        } catch (error) {
+            console.error(`${aiType} battle initialization failed:`, error);
+            showGameOverMessage(`${aiType} battle initialization failed: ` + error.message, false);
+            enableAllAIButtons();
+            isAIBattleRunning = false;
+        }
+    }
+
+    async function startAIBattleCot(aiType) {
+        if (isAIBattleRunning) return;
+
+        isAIBattleRunning = true;
+        if (aiType === 'DeepSeek CoT') {
+            currentAIMode = 'deepseek-cot';
+        } else if (aiType === 'OpenAI CoT') {
+            currentAIMode = 'openai-cot';
+        } else if (aiType === 'Gemini CoT') {
+            currentAIMode = 'gemini-cot';
+        }
+
+        try {
+            disableAllAIButtons();
+            hideGameOverMessage();
+
+            // Start new game, specifying AI type
+            const response = await fetch(`/api/xiangqi-cot/ai-battle/new?aiType=${encodeURIComponent(aiType)}`, {
+                method: 'POST'
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            // Reset board
+            board = initialBoard();
+            updateFoulTable([]);
+            draw();
+
+            // Start battle loop
+            await runAIBattleCot();
+
+        } catch (error) {
+            console.error(`${aiType} battle initialization failed:`, error);
+            showGameOverMessage(`${aiType} battle initialization failed: ` + error.message, false);
+            enableAllAIButtons();
+            isAIBattleRunning = false;
+        }
+    }
+
+    // General battle loop
+    async function runAIBattle() {
+        while (isAIBattleRunning && !gameOver) {
+            try {
+                const response = await fetch('/api/xiangqi/ai-battle/next-round', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'}
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Apply moves
+                    if (data.aiMove) applyUci(data.aiMove);
+                    if (data.pikafishMove) applyUci(data.pikafishMove);
+
+                    draw();
+
+                    if (data.gameOver) {
+                        // Game ended
+                        handleAIGameResult(data);
+                        break;
+                    } else {
+                        // Get and update error records
+                        await updateFoulRecords();
+
+                        // Delay for observation
+                        await delay(1000);
+                    }
+                } else {
+                    if (data.gameOver) {
+                        handleAIGameResult(data);
+                    } else {
+                        showGameOverMessage('AI battle error: ' + (data.error || 'Unknown error'), false);
+                    }
+                    break;
+                }
+            } catch (error) {
+                console.error('AI battle round error:', error);
+                showGameOverMessage('AI battle error: ' + error.message, false);
+                break;
             }
         }
 
-        updateStatusBar(message, isWin ? 'win-message' : 'lose-message');
+        enableAllAIButtons();
+        isAIBattleRunning = false;
+    }
+
+    async function runAIBattleCot() {
+        while (isAIBattleRunning && !gameOver) {
+            try {
+                const response = await fetch('/api/xiangqi-cot/ai-battle/next-round', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Apply moves
+                    if (data.aiMove) applyUci(data.aiMove);
+                    if (data.pikafishMove) applyUci(data.pikafishMove);
+
+                    draw();
+
+                    if (data.gameOver) {
+                        // Game ended
+                        data.cotMode = true;
+                        handleAIGameResult(data);
+                        break;
+                    } else {
+                        // Get and update error records
+                        if (currentAIMode === 'deepseek-cot' || currentAIMode === 'openai-cot' || currentAIMode === 'gemini-cot') {
+                            await updateFoulRecordsCot();
+                        } else {
+                            await updateFoulRecords();
+                        }
+
+                        // Delay for observation
+                        await delay(1000);
+                    }
+                } else {
+                    if (data.gameOver) {
+                        data.cotMode = true;
+                        handleAIGameResult(data);
+                    } else {
+                        showGameOverMessage('CoT battle error: ' + (data.error || 'Unknown error'), false);
+                    }
+                    break;
+                }
+            } catch (error) {
+                console.error('CoT battle round error:', error);
+                showGameOverMessage('CoT battle round error: ' + error.message, false);
+                break;
+            }
+        }
+
+        enableAllAIButtons();
+        isAIBattleRunning = false;
+    }
+
+    // Helper functions
+    async function updateFoulRecords() {
+        try {
+            const response = await fetch('/api/xiangqi/ai-battle/fouls');
+            const data = await response.json();
+
+            if (data.success) {
+                updateFoulTable(data.fouls);
+            }
+        } catch (error) {
+            console.error('Failed to get error records:', error);
+        }
+    }
+
+    async function updateFoulRecordsCot() {
+        try {
+            const response = await fetch('/api/xiangqi-cot/ai-battle/fouls');
+            const data = await response.json();
+            if (data.success) {
+                updateFoulTable(data.fouls);
+            }
+        } catch (error) {
+            console.error('Failed to get CoT error records:', error);
+        }
+    }
+
+    function handleAIGameResult(data) {
+        gameOver = true;
+        isAIBattleRunning = false;
+
+        let message = data.gameResult || 'Game ended';
+        let isWin = data.winner === 'RED';
+
         showGameOverMessage(message, isWin);
 
-        // Apply any unapplied moves
-        if (data.playerMove) applyUci(data.playerMove);
-        if (data.aiMove) applyUci(data.aiMove);
-        draw();
+        // Update error records
+        if (data.cotMode || currentAIMode.includes('-cot')) {
+            updateFoulRecordsCot();
+        } else {
+            updateFoulRecords();
+        }
 
-        // CSV auto export, no alerts shown
+        // Ensure final board state is drawn
+        draw();
     }
 
-    /* ========== Startup ========== */
+    function delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function getButtonByAIType(aiType) {
+        if (aiType === 'DeepSeek') return document.getElementById('deepseekBtn');
+        if (aiType === 'DeepSeek CoT') return document.getElementById('deepseekCotBtn');
+        if (aiType === 'OpenAI') return document.getElementById('openaiBtn');
+        if (aiType === 'OpenAI CoT') return document.getElementById('openaiCotBtn');
+        if (aiType === 'Gemini') return document.getElementById('geminiBtn');
+        if (aiType === 'Gemini CoT') return document.getElementById('geminiCotBtn');
+        return null;
+    }
+
+    function disableAllAIButtons() {
+        document.getElementById('deepseekBtn').disabled = true;
+        document.getElementById('deepseekCotBtn').disabled = true;
+        document.getElementById('openaiBtn').disabled = true;
+        document.getElementById('openaiCotBtn').disabled = true;
+        document.getElementById('geminiBtn').disabled = true;
+        document.getElementById('geminiCotBtn').disabled = true;
+    }
+
+    function enableAllAIButtons() {
+        document.getElementById('deepseekBtn').disabled = false;
+        document.getElementById('deepseekCotBtn').disabled = false;
+        document.getElementById('openaiBtn').disabled = false;
+        document.getElementById('openaiCotBtn').disabled = false;
+        document.getElementById('geminiBtn').disabled = false;
+        document.getElementById('geminiCotBtn').disabled = false;
+    }
+
+    // Startup
     (async function(){
         await preload();
         await newGame();

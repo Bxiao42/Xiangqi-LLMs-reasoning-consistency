@@ -9,4 +9,3 @@ public class XiangqiApplication {
         SpringApplication.run(XiangqiApplication.class, args);
     }
 }
-

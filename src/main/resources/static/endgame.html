@@ -1,3 +1,4 @@
+<!-- endgame.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -22,19 +23,27 @@
             padding:12px 20px;
             margin:5px;
             border-radius:8px;
-            border:2px solid #000;
+            border:1px solid #ddd;
             background:#fff;
             cursor:pointer;
             font-size:16px;
+            color: #333;
             transition: all 0.2s ease;
         }
         .level-btn:hover{
             background:#f0f0f0;
-            color:#000;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 12px rgba(0,0,0,.08);
         }
-        .level-btn.completed{ background:#4CAF50; color:white; }
-        .level-btn.current{ border-color:#FF9800; background:#FF9800; color:white; }
+        .level-btn.completed{
+            border: 1px dashed #888;
+            color: #888;
+            background: #fff;
+        }
+        .level-btn.current{
+            border: 2px solid #FF9800;
+            background:#fff;
+            color: #333;
+        }
 
         #gameArea{
             display:none;
@@ -55,9 +64,16 @@
         }
         .toolbar{
             display:flex;
+            flex-direction: column;
             gap:8px;
             align-items:center;
-            flex-wrap:wrap;
+            width: 100%;
+        }
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: center;
         }
         button{
             padding:8px 14px;
@@ -66,9 +82,17 @@
             background:#fff;
             cursor:pointer;
             font-size:14px;
+            color: #333;
+            transition: all 0.2s ease;
+            min-width: 120px;
         }
         button:hover{
+            background:#f0f0f0;
             box-shadow:0 4px 12px rgba(0,0,0,.08);
+        }
+        button:disabled{
+            opacity:0.6;
+            cursor:not-allowed;
         }
         h3{
             margin:.2rem 0;
@@ -91,11 +115,13 @@
             font-weight: 600;
         }
         #foulTable{
-            width:360px;
+            width:300px;
         }
         .hint{
             color:#888;
             font-size:12px;
+            text-align: center;
+            margin-top: 8px;
         }
         #statusBar{
             margin:15px 0;
@@ -106,25 +132,7 @@
             color:#444;
             min-height: 20px;
             font-weight: 500;
-        }
-
-        .game-over {
-            background: #fff3cd !important;
-            border-color: #ffeaa7 !important;
-            color: #856404 !important;
-            font-weight: bold !important;
-        }
-
-        .win-message {
-            background: #d1ecf1 !important;
-            border-color: #bee5eb !important;
-            color: #0c5460 !important;
-        }
-
-        .lose-message {
-            background: #f8d7da !important;
-            border-color: #f5c6cb !important;
-            color: #721c24 !important;
+            display: none;
         }
 
         #rightCol {
@@ -140,7 +148,116 @@
             width: 100%;
         }
 
-        /* Removed CSV download button related styles */
+        /* AI battle button styles */
+        .ai-battle-buttons {
+            margin-top: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: center;
+            width: 100%;
+        }
+
+        .ai-battle-btn {
+            padding: 10px 16px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            background: #fff;
+            color: #333;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            min-width: 220px;
+        }
+
+        .ai-battle-btn:hover {
+            background: #f0f0f0;
+        }
+
+        .ai-battle-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            border-color: #ccc;
+            color: #888;
+        }
+
+        .ai-battle-btn:disabled:hover {
+            background: #fff;
+        }
+
+        /* Round counter style */
+        #roundCounter {
+            margin: 15px 0;
+            padding: 10px 15px;
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            display: none;
+            text-align: center;
+            min-width: 150px;
+        }
+
+        #roundCount {
+            color: #FF9800;
+            font-weight: bold;
+        }
+
+        #roundCounter.warning {
+            border-color: #ff9800;
+            background: #fff8e1;
+        }
+
+        #roundCounter.danger {
+            border-color: #f44336;
+            background: #ffebee;
+            color: #d32f2f;
+        }
+
+        /* Continuous battle settings style */
+        .continuous-settings {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: center;
+        }
+        .continuous-settings label {
+            font-size: 14px;
+            color: #666;
+        }
+        .continuous-settings input {
+            width: 60px;
+            padding: 4px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .continuous-settings button {
+            width: 80px;
+            padding: 4px 12px;
+            font-size: 13px;
+        }
+
+        /* Continuous battle status display */
+        #continuousStatus {
+            display: none;
+            background: #f0f9ff;
+            border: 1px solid #b6e3ff;
+            border-radius: 8px;
+            padding: 8px 12px;
+            margin-top: 5px;
+            font-size: 13px;
+            color: #0066cc;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -156,27 +273,71 @@
         <div id="leftCol">
             <canvas id="board" width="450" height="500"></canvas>
             <div class="toolbar">
-                <button onclick="resetLevel()">Restart</button>
-                <button onclick="backToLevels()">Back to Levels</button>
+                <div class="button-group">
+                    <button onclick="resetLevel()">Restart</button>
+                    <button onclick="backToLevels()">Back to Levels</button>
+                </div>
                 <span class="hint">Red moves first: Click to select piece, then click target square</span>
+
+                <!-- AI battle buttons, button text and parameters are lowercase model names -->
+                <div class="ai-battle-buttons">
+                    <!-- DeepSeek ZeroShot -->
+                    <button class="ai-battle-btn" onclick="startEndgameAIBattle('deepseek-chat')" id="deepseekZeroshotBtn">
+                        deepseek-chat
+                    </button>
+                    <!-- DeepSeek CoT -->
+                    <button class="ai-battle-btn" onclick="startEndgameAIBattle('deepseek-reasoner')" id="deepseekCotBtn">
+                        deepseek-reasoner
+                    </button>
+                    <!-- OpenAI ZeroShot -->
+                    <button class="ai-battle-btn" onclick="startEndgameAIBattle('gpt-5-mini')" id="openaiZeroshotBtn">
+                        gpt-5-mini
+                    </button>
+                    <!-- OpenAI CoT -->
+                    <button class="ai-battle-btn" onclick="startEndgameAIBattle('gpt-5.2')" id="openaiCotBtn">
+                        gpt-5.2
+                    </button>
+                    <!-- Gemini ZeroShot -->
+                    <button class="ai-battle-btn" onclick="startEndgameAIBattle('gemini-2.5-flash')" id="geminiZeroshotBtn">
+                        gemini-2.5-flash
+                    </button>
+                    <!-- Gemini CoT -->
+                    <button class="ai-battle-btn" onclick="startEndgameAIBattle('gemini-2.5-pro')" id="geminiCotBtn">
+                        gemini-2.5-pro
+                    </button>
+                </div>
+
+                <!-- Continuous battle settings -->
+                <div class="continuous-settings">
+                    <label for="maxGames">Number of battlefields: </label>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <input type="number" id="maxGames" min="1" max="100" value="3">
+                        <button onclick="setContinuousBattle()">Confirm</button>
+                    </div>
+                    <div id="continuousStatus"></div>
+                </div>
+
+                <!-- Round counter -->
+                <div id="roundCounter">
+                    Round: <span id="roundCount">0</span>/30
+                </div>
             </div>
         </div>
 
         <div id="rightCol">
-            <div id="statusBar">Status: In Progress</div>
+            <!-- Hidden status bar -->
+            <div id="statusBar" style="display: none;"></div>
 
             <h3>Foul Records</h3>
             <table id="foulTable">
-                <tr><th>#</th><th>Type</th></tr>
+                <tr><th>Round</th><th>Type</th></tr>
             </table>
-
-            <!-- Removed CSV download area -->
         </div>
     </div>
 </div>
 
 <script>
-    /* ========== Canvas & DPR ========== */
+    // Canvas & DPR
     const cvs = document.getElementById('board');
     const ctx = cvs.getContext('2d');
     const DPR = window.devicePixelRatio || 1;
@@ -187,10 +348,10 @@
     cvs.height = Math.round(LOGICAL_H * DPR);
     ctx.scale(DPR, DPR);
 
-    /* ========== Fixed inner frame ========== */
+    // Fixed inner frame padding
     const PAD_L = 24, PAD_R = 24, PAD_T = 22, PAD_B = 22;
 
-    /* ========== Geometry ========== */
+    // Geometry
     const OUT_W = LOGICAL_W, OUT_H = LOGICAL_H;
     const COLS = 9, ROWS = 10;
     const INNER_X = PAD_L;
@@ -200,7 +361,7 @@
     const CELL_W  = INNER_W / COLS;
     const CELL_H  = INNER_H / ROWS;
 
-    /* ========== Resources & Game ========== */
+    // Resources & Game
     const RED='RED', BLACK='BLACK';
     const SPRITES = {
         board: '/images/MAIN.GIF',
@@ -219,7 +380,19 @@
     let locked = false;
     let foulRows = [];
 
-    /* ========== Initialization ========== */
+    // AI battle related variables
+    let isAIBattleRunning = false;
+    let currentAIMode = null;
+    let battleMoveCount = 0;
+    let currentRound = 0;
+
+    // Continuous battle related variables
+    let continuousBattleEnabled = false;
+    let maxGames = 3;
+    let currentGame = 0;
+    let continuousResults = [];
+
+    // Initialization
     function loadImage(src){
         return new Promise(r=>{
             const i=new Image();
@@ -242,7 +415,7 @@
         return sidePrefix + typeChar;
     }
 
-    /* ========== Level Selection ========== */
+    // Level Selection
     function initLevelSelection() {
         const container = document.getElementById('levelButtons');
         container.innerHTML = '';
@@ -287,72 +460,136 @@
     function backToLevels() {
         document.getElementById('gameArea').style.display = 'none';
         document.getElementById('levelSelection').style.display = 'block';
+        resetAIBattleState();
     }
 
     function resetLevel() {
+        resetAIBattleState();
         loadLevel(currentLevel);
     }
 
-    /* ========== Use default board (fallback) ========== */
+    // Use default board (fallback)
     function useDefaultBoard() {
         board = Array.from({length:ROWS}, ()=>Array(COLS).fill(null));
-        board[9][4] = {s: RED, t: 'K'};
-        board[8][0] = {s: RED, t: 'R'};
-        board[0][4] = {s: BLACK, t: 'K'};
+        // Default board: Red at bottom (row 0), Black at top (row 9)
+        board[0][4] = {s: RED, t: 'K'};   // Red general at bottom row 0
+        board[1][0] = {s: RED, t: 'R'};   // Red rook at row 1
+        board[9][4] = {s: BLACK, t: 'K'}; // Black general at top row 9
 
         resetGameState();
         draw();
     }
 
-    /* ========== Board initialization ========== */
+    // Board initialization
+    // Directly use row numbers from backend (0 bottom, 9 top)
     function initBoardFromData(boardData) {
         board = Array.from({length:ROWS}, ()=>Array(COLS).fill(null));
 
-        for(let r=0; r<ROWS; r++) {
-            for(let c=0; c<COLS; c++) {
-                const cell = boardData[r][c];
-                if(cell && cell.side && cell.type) {
-                    board[r][c] = {
-                        s: cell.side,
-                        t: cell.type
-                    };
+        if (boardData && boardData.pieces) {
+            // AI battle data structure (contains pieces array)
+            boardData.pieces.forEach(piece => {
+                const canvasRow = piece.row;  // use row number directly from backend
+                const col = piece.col;
+                const pieceType = convertPieceType(piece.type);
+                board[canvasRow][col] = {
+                    s: piece.side,
+                    t: pieceType
+                };
+            });
+        } else if (Array.isArray(boardData)) {
+            // Regular level data structure (2D array)
+            for(let r=0; r<ROWS; r++) {
+                for(let c=0; c<COLS; c++) {
+                    const cell = boardData[r][c];
+                    if(cell && cell.side && cell.type) {
+                        board[r][c] = {
+                            s: cell.side,
+                            t: cell.type
+                        };
+                    }
                 }
             }
         }
+    }
+
+    // Convert piece type: from full name to single character
+    function convertPieceType(fullType) {
+        if (!fullType) return '?';
+        const typeMap = {
+            'GENERAL': 'K',
+            'ADVISOR': 'A',
+            'ELEPHANT': 'B',
+            'HORSE': 'N',
+            'ROOK': 'R',
+            'CANNON': 'C',
+            'PAWN': 'P'
+        };
+        if (fullType.length === 1) return fullType;
+        return typeMap[fullType.toUpperCase()] || fullType.charAt(0);
     }
 
     function resetGameState() {
         select = null;
         locked = false;
         foulRows = [];
+        currentRound = 0;
 
-        document.getElementById('foulTable').innerHTML = '<tr><th>#</th><th>Type</th></tr>';
-        document.getElementById('statusBar').textContent = 'Status: In Progress';
+        document.getElementById('foulTable').innerHTML = '<tr><th>Round</th><th>Type</th></tr>';
+        document.getElementById('statusBar').textContent = '';
         document.getElementById('statusBar').className = '';
+        document.getElementById('statusBar').style.display = 'none';
+
+        // Reset round counter
+        updateRoundCounter(0);
+        document.getElementById('roundCounter').style.display = 'none';
     }
 
-    /* ========== Drawing ========== */
+    // Update round counter
+    function updateRoundCounter(round) {
+        currentRound = round;
+        document.getElementById('roundCount').textContent = round;
+
+        const counter = document.getElementById('roundCounter');
+        counter.style.display = 'block';
+
+        if (round >= 25) {
+            counter.className = 'danger';
+            document.getElementById('roundCount').style.color = '#f44336';
+        } else if (round >= 20) {
+            counter.className = 'warning';
+            document.getElementById('roundCount').style.color = '#ff9800';
+        } else {
+            counter.className = '';
+            document.getElementById('roundCount').style.color = '#333';
+        }
+    }
+
+    // Drawing
     function drawPieces(){
         const size = Math.min(CELL_W, CELL_H) * 0.86, rds = size/2;
-        for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
-            const p = board[r][c]; if(!p) continue;
-            const x = INNER_X + c*CELL_W + CELL_W/2;
-            const y = INNER_Y + r*CELL_H + CELL_H/2;
-            const key = imgKeyOf(p), sp = IMGS[key];
-            if(sp){
-                ctx.drawImage(sp, x-rds, y-rds, size, size);
-            } else {
-                ctx.beginPath();
-                ctx.arc(x,y,rds,0,Math.PI*2);
-                ctx.fillStyle='#fff';
-                ctx.fill();
-                ctx.stroke();
-                ctx.fillStyle = (p.s===RED)?'#c00':'#222';
-                ctx.font='bold 20px system-ui';
-                ctx.textAlign='center';
-                ctx.textBaseline='middle';
-                const glyph={K:'帅',A:'仕',B:'相',N:'马',R:'车',C:'炮',P:'兵'}[p.t]||'?';
-                ctx.fillText(glyph,x,y);
+        for(let r=0; r<ROWS; r++) {
+            for(let c=0; c<COLS; c++) {
+                const p = board[r][c];
+                if(!p) continue;
+                const x = INNER_X + c*CELL_W + CELL_W/2;
+                // Flip row: row 0 is bottom, row 9 is top
+                const y = INNER_Y + (9 - r) * CELL_H + CELL_H/2;
+                const key = imgKeyOf(p), sp = IMGS[key];
+                if(sp){
+                    ctx.drawImage(sp, x-rds, y-rds, size, size);
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(x,y,rds,0,Math.PI*2);
+                    ctx.fillStyle='#fff';
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.fillStyle = (p.s===RED)?'#c00':'#222';
+                    ctx.font='bold 20px system-ui';
+                    ctx.textAlign='center';
+                    ctx.textBaseline='middle';
+                    const glyph={K:'帅',A:'仕',B:'相',N:'马',R:'车',C:'炮',P:'兵'}[p.t]||'?';
+                    ctx.fillText(glyph,x,y);
+                }
             }
         }
     }
@@ -364,17 +601,21 @@
         }
         if(select){
             ctx.fillStyle='rgba(0,128,255,.12)';
-            ctx.fillRect(INNER_X + select.c*CELL_W, INNER_Y + select.r*CELL_H, CELL_W, CELL_H);
+            // Selection rectangle y coordinate also needs flipping
+            ctx.fillRect(INNER_X + select.c*CELL_W,
+                         INNER_Y + (9 - select.r) * CELL_H,
+                         CELL_W, CELL_H);
         }
         drawPieces();
     }
 
-    /* ========== Click handling ========== */
+    // Click handling
     function hitToCell(x,y){
         const gx = x - INNER_X, gy = y - INNER_Y;
         if(gx < 0 || gy < 0 || gx > INNER_W || gy > INNER_H) return null;
         const c = Math.floor(gx / CELL_W);
-        const r = Math.floor(gy / CELL_H);
+        // According to uniform coordinates, clicked gy corresponds to flipped row number
+        const r = 9 - Math.floor(gy / CELL_H);
         if(c<0||c>=COLS||r<0||r>=ROWS) return null;
         return {r,c};
     }
@@ -404,12 +645,13 @@
         }
     });
 
-    /* ========== Move logic ========== */
+    // Move logic
+    // Use row numbers directly as in UCI (no conversion)
     function applyUci(uci){
         const fromC = uci.charCodeAt(0) - 97;
-        const fromR = 9 - parseInt(uci[1],10);
+        const fromR = parseInt(uci[1],10);
         const toC   = uci.charCodeAt(2) - 97;
-        const toR   = 9 - parseInt(uci[3],10);
+        const toR   = parseInt(uci[3],10);
         const p = board[fromR][fromC];
         if(!p) return;
         board[toR][toC] = p;
@@ -436,49 +678,29 @@
 
             const data = await res.json();
 
-            const bar = document.getElementById('statusBar');
-
             // Handle game end situations
             if(data.result === 'gameOver' || data.completed) {
                 locked = true;
-
-                // Update status bar
-                bar.textContent = `Status: ${data.resultDescription}`;
-                bar.className = 'game-over';
-
-                if(data.resultDescription.includes('Congratulations')) {
-                    bar.classList.add('win-message');
-                } else {
-                    bar.classList.add('lose-message');
-                }
-
-                // Apply final move and update board
-                if (data.playerMove) {
-                    applyUci(data.playerMove);
-                }
-
-                // Key: Use backend's latest board state to update frontend board
+                alert(data.resultDescription || "Game Over!");
                 if (data.board) {
                     initBoardFromData(data.board);
                 }
-
                 draw();
-
-                // Only automatically download CSV file if there are foul records
-                if (data.csvFilePath) {
-                    // Automatically download CSV file
-                    setTimeout(() => {
-                        downloadCsvFile();
-                    }, 500);
-                }
-
                 return;
             }
 
             if(data.result === 'foul'){
                 pushFoul(data.foulCount, 'Illegal move');
-                bar.textContent = `Status: Illegal move (${data.foulCount} fouls)`;
-                // Ensure correct board state display
+                alert(data.message || 'Illegal move!');
+                if (data.board) {
+                    initBoardFromData(data.board);
+                    draw();
+                }
+                return;
+            }
+
+            if(data.result === 'repeated_move') {
+                alert(data.message || 'Repeated move not allowed!');
                 if (data.board) {
                     initBoardFromData(data.board);
                     draw();
@@ -501,56 +723,436 @@
 
             draw();
 
-            // Update status information
-            if(data.inCheck) {
-                bar.textContent = 'Status: Check! Please escape check immediately';
-            } else {
-                bar.textContent = `Status: In Progress - ${data.turn === 'RED' ? 'Red' : 'Black'}'s turn`;
-            }
-
         }catch(err){
             console.error('Move failed:', err);
             alert('Move failed: ' + err.message);
         }
     }
 
-    /* ========== CSV automatic download ========== */
-    async function downloadCsvFile() {
-        try {
-            const response = await fetch(`/api/endgame/download-csv/${currentLevel}`);
-            if (response.ok) {
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.style.display = 'none';
-                a.href = url;
+    // Continuous battle settings
+    function setContinuousBattle() {
+        const input = document.getElementById('maxGames');
+        const value = parseInt(input.value);
 
-                // Get filename from Content-Disposition header, or use default name
-                const contentDisposition = response.headers.get('Content-Disposition');
-                let filename = `endgame_${currentLevel}_fouls.csv`;
-                if (contentDisposition) {
-                    const filenameMatch = contentDisposition.match(/filename="(.+)"/);
-                    if (filenameMatch) {
-                        filename = filenameMatch[1];
-                    }
-                }
+        if (isNaN(value) || value < 1 || value > 100) {
+            alert('Please enter a valid number between 1 and 100');
+            input.value = maxGames;
+            return;
+        }
 
-                a.download = filename;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                document.body.removeChild(a);
+        maxGames = value;
+        continuousBattleEnabled = true;
 
-                console.log('CSV file automatically downloaded: ' + filename);
-            } else {
-                console.warn('CSV file not found or download failed');
-            }
-        } catch (error) {
-            console.error('Automatic CSV download failed:', error);
+        const statusDiv = document.getElementById('continuousStatus');
+        statusDiv.textContent = `Continuous battle enabled: ${maxGames} games`;
+        statusDiv.style.display = 'block';
+        statusDiv.style.backgroundColor = '#f0f9ff';
+        statusDiv.style.color = '#0066cc';
+
+        console.log(`Continuous battle settings: ${maxGames} games`);
+    }
+
+    // AI battle related functions
+
+    async function startEndgameAIBattle(mode) {
+        if (isAIBattleRunning) {
+            alert('AI battle in progress, please wait for completion');
+            return;
+        }
+
+        if (!currentLevel) {
+            alert('Please select a level first');
+            return;
+        }
+
+        if (continuousBattleEnabled) {
+            // Continuous battle mode
+            await startContinuousEndgameBattle(mode);
+        } else {
+            // Single battle mode
+            await startSingleEndgameBattle(mode);
         }
     }
 
-    /* ========== Startup ========== */
+    // Single endgame battle (original logic)
+    async function startSingleEndgameBattle(mode) {
+        currentAIMode = mode;
+        isAIBattleRunning = true;
+        battleMoveCount = 0;
+        currentRound = 0;
+
+        // Disable all AI buttons
+        disableAllAIBattleButtons();
+
+        // Show round counter
+        updateRoundCounter(0);
+
+        try {
+            // Initialize AI battle
+            const initRes = await fetch(`/api/endgame/ai-battle/new/${currentLevel}?mode=${mode}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!initRes.ok) {
+                throw new Error(`Initialization failed: ${initRes.status}`);
+            }
+
+            const initData = await initRes.json();
+
+            if (!initData.success) {
+                throw new Error(initData.error || 'Unknown error');
+            }
+
+            // Update board state
+            if (initData.board) {
+                initBoardFromData(initData.board);
+                draw();
+            } else {
+                // If no board field, get current board state
+                await updateAIBattleBoard(mode);
+            }
+
+            // Start AI battle loop
+            await runAIBattleLoop(mode);
+
+        } catch (error) {
+            console.error('AI battle failed:', error);
+            alert(`AI battle failed: ${error.message}`);
+            resetAIBattleState();
+        }
+    }
+
+    // Continuous endgame battle
+    async function startContinuousEndgameBattle(mode) {
+        if (isAIBattleRunning) return;
+
+        isAIBattleRunning = true;
+        currentGame = 0;
+        continuousResults = [];
+
+        console.log(`Starting continuous battle: ${mode} (${maxGames} games)`);
+
+        // Update status display
+        const statusDiv = document.getElementById('continuousStatus');
+        statusDiv.textContent = `Continuous battle in progress: ${currentGame}/${maxGames} games`;
+        statusDiv.style.backgroundColor = '#fff3cd';
+        statusDiv.style.color = '#856404';
+        statusDiv.style.display = 'block';
+
+        try {
+            // Disable all AI buttons
+            disableAllAIBattleButtons();
+
+            while (currentGame < maxGames && isAIBattleRunning) {
+                currentGame++;
+                console.log(`Game ${currentGame}/${maxGames} started`);
+
+                // Reset game state (reinitialize level)
+                await resetForContinuousBattle(mode);
+
+                // Run a single game
+                const gameResult = await runSingleContinuousBattle(mode);
+
+                // Record result
+                if (gameResult) {
+                    continuousResults.push({
+                        game: currentGame,
+                        result: gameResult.result,
+                        winner: gameResult.winner,
+                        rounds: gameResult.rounds
+                    });
+
+                    console.log(`Game ${currentGame} result: ${gameResult.result}`);
+                }
+
+                // Update status display
+                statusDiv.textContent = `Continuous battle in progress: ${currentGame}/${maxGames} games`;
+
+                // If not the last game, delay
+                if (currentGame < maxGames) {
+                    await delay(1000);
+                }
+            }
+
+            // Completed
+            statusDiv.textContent = `Continuous battle completed: ${maxGames} games`;
+            statusDiv.style.backgroundColor = '#d4edda';
+            statusDiv.style.color = '#155724';
+
+            console.log(`Continuous battle completed: ${mode}, ${maxGames} games`, continuousResults);
+
+        } catch (error) {
+            console.error(`Continuous battle error: ${error.message}`);
+            alert(`Continuous battle error: ${error.message}`);
+        } finally {
+            // Enable all buttons
+            enableAllAIBattleButtons();
+            isAIBattleRunning = false;
+        }
+    }
+
+    // Reset to initial state for continuous battle (reinitialize current level)
+    async function resetForContinuousBattle(mode) {
+        try {
+            // Reinitialize AI battle
+            const initRes = await fetch(`/api/endgame/ai-battle/new/${currentLevel}?mode=${mode}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!initRes.ok) {
+                throw new Error(`Initialization failed: ${initRes.status}`);
+            }
+
+            const initData = await initRes.json();
+
+            if (!initData.success) {
+                throw new Error(initData.error || 'Unknown error');
+            }
+
+            // Update board state
+            if (initData.board) {
+                initBoardFromData(initData.board);
+                draw();
+            }
+
+            // Clear foul records table
+            document.getElementById('foulTable').innerHTML = '<tr><th>Round</th><th>Type</th></tr>';
+            foulRows = [];
+
+        } catch (error) {
+            console.error('Reset for continuous battle failed:', error);
+            throw error;
+        }
+    }
+
+    // Run a single continuous battle (endgame)
+    async function runSingleContinuousBattle(mode) {
+        let gameOver = false;
+        let gameResult = null;
+
+        // Wait a short time before starting
+        await delay(500);
+
+        while (!gameOver && isAIBattleRunning) {
+            try {
+                const moveRes = await fetch(`/api/endgame/ai-battle/next-round/${currentLevel}?mode=${mode}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!moveRes.ok) {
+                    throw new Error(`Move failed: ${moveRes.status}`);
+                }
+
+                const moveData = await moveRes.json();
+
+                // Update round counter
+                if (moveData.round) {
+                    updateRoundCounter(moveData.round);
+                }
+
+                if (moveData.gameOver) {
+                    // Game over
+                    gameOver = true;
+                    gameResult = {
+                        result: moveData.gameResult || 'Game ended',
+                        winner: moveData.winner || 'unknown',
+                        rounds: moveData.round || 0
+                    };
+
+                    // Update board state
+                    const boardData = moveData.boardState || moveData.board;
+                    if (boardData) {
+                        initBoardFromData(boardData);
+                        draw();
+                    }
+
+                    // Get foul records
+                    await updateAIBattleFouls(mode);
+                    break;
+                }
+
+                // Update board
+                const boardData = moveData.boardState || moveData.board;
+                if (boardData) {
+                    initBoardFromData(boardData);
+                    draw();
+                }
+
+                // Get foul records
+                await updateAIBattleFouls(mode);
+
+                // Delay for observation
+                await delay(1000);
+
+            } catch (error) {
+                console.error('AI battle round failed:', error);
+                gameOver = true;
+                gameResult = {
+                    result: `error: ${error.message}`,
+                    winner: 'error',
+                    rounds: 0
+                };
+                break;
+            }
+        }
+
+        return gameResult;
+    }
+
+    // Get AI battle board state
+    async function updateAIBattleBoard(mode) {
+        try {
+            const res = await fetch(`/api/endgame/ai-battle/board-state/${currentLevel}?mode=${mode}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.success && data.boardState) {
+                    initBoardFromData(data.boardState);
+                    draw();
+                }
+            }
+        } catch (error) {
+            console.error('Failed to update board:', error);
+        }
+    }
+
+    async function runAIBattleLoop(mode) {
+        while (isAIBattleRunning) {
+            try {
+                // Wait a short time for observation
+                await delay(1500);
+
+                // Execute next round
+                const moveRes = await fetch(`/api/endgame/ai-battle/next-round/${currentLevel}?mode=${mode}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!moveRes.ok) {
+                    throw new Error(`Move failed: ${moveRes.status}`);
+                }
+
+                const moveData = await moveRes.json();
+
+                // Update round counter
+                if (moveData.round) {
+                    updateRoundCounter(moveData.round);
+                }
+
+                if (moveData.gameOver) {
+                    // Game over
+                    handleBattleGameOver(moveData, mode);
+                    break;
+                }
+
+                // Update board
+                const boardData = moveData.boardState || moveData.board;
+                if (boardData) {
+                    initBoardFromData(boardData);
+                    draw();
+                }
+
+                // Get foul records
+                await updateAIBattleFouls(mode);
+
+                battleMoveCount++;
+
+            } catch (error) {
+                console.error('AI battle round failed:', error);
+                alert(`AI battle round failed: ${error.message}`);
+                break;
+            }
+        }
+    }
+
+    // Get AI battle foul records
+    async function updateAIBattleFouls(mode) {
+        try {
+            const res = await fetch(`/api/endgame/ai-battle/fouls/${currentLevel}?mode=${mode}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.success && data.fouls) {
+                    // Clear existing records
+                    document.getElementById('foulTable').innerHTML = '<tr><th>Round</th><th>Type</th></tr>';
+
+                    // Add new records (only round and type)
+                    data.fouls.forEach(foul => {
+                        document.getElementById('foulTable')
+                            .insertAdjacentHTML('beforeend',
+                                `<tr><td>${foul.round || '?'}</td><td>${foul.type || 'Unknown'}</td></tr>`);
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Failed to update fouls:', error);
+        }
+    }
+
+    function handleBattleGameOver(data, mode) {
+        isAIBattleRunning = false;
+
+        // Update board state
+        const boardData = data.boardState || data.board;
+        if (boardData) {
+            initBoardFromData(boardData);
+            draw();
+        }
+
+        // Show result
+        alert(`AI Battle Result: ${data.gameResult || 'Game ended'}`);
+
+        // Re-enable buttons
+        resetAIBattleState();
+    }
+
+    function disableAllAIBattleButtons() {
+        document.getElementById('deepseekZeroshotBtn').disabled = true;
+        document.getElementById('deepseekCotBtn').disabled = true;
+        document.getElementById('openaiZeroshotBtn').disabled = true;
+        document.getElementById('openaiCotBtn').disabled = true;
+        document.getElementById('geminiZeroshotBtn').disabled = true;
+        document.getElementById('geminiCotBtn').disabled = true;
+    }
+
+    function enableAllAIBattleButtons() {
+        document.getElementById('deepseekZeroshotBtn').disabled = false;
+        document.getElementById('deepseekCotBtn').disabled = false;
+        document.getElementById('openaiZeroshotBtn').disabled = false;
+        document.getElementById('openaiCotBtn').disabled = false;
+        document.getElementById('geminiZeroshotBtn').disabled = false;
+        document.getElementById('geminiCotBtn').disabled = false;
+    }
+
+    function resetAIBattleState() {
+        isAIBattleRunning = false;
+        currentAIMode = null;
+        battleMoveCount = 0;
+        currentRound = 0;
+
+        // Note: continuous battle status is not reset here, keep user settings
+        // But ensure buttons are enabled
+        enableAllAIBattleButtons();
+
+        document.getElementById('roundCounter').style.display = 'none';
+        document.getElementById('roundCount').textContent = '0';
+        document.getElementById('roundCount').style.color = '#333';
+    }
+
+    function delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    // Startup
     (async function(){
         await preload();
         initLevelSelection();

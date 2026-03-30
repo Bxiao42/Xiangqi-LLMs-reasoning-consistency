@@ -3,19 +3,16 @@ package com.example.xiangqi.web;
 
 import com.example.xiangqi.engine.EngineService;
 import com.example.xiangqi.game.XqEndgameJudge;
-import com.example.xiangqi.game.XqEndgameJudge.GameResult;
-import com.example.xiangqi.game.XqRules.*;
+import com.example.xiangqi.game.XqEndgameRule.*;
+import com.example.xiangqi.service.DeepSeekEndgameService;
+import com.example.xiangqi.service.GeminiEndgameService;
+import com.example.xiangqi.service.OpenAIEndgameService;
+import com.example.xiangqi.service.EndgameAccuracyService;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.core.io.Resource;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -28,38 +25,40 @@ import java.util.regex.Pattern;
 public class EndgameController {
 
     private final EngineService engine;
+    private final DeepSeekEndgameService deepSeekEndgameService;
+    private final OpenAIEndgameService openAIEndgameService;
+    private final GeminiEndgameService geminiEndgameService;
+    private final EndgameAccuracyService endgameAccuracyService;
 
-    // Endgame state storage
-    private Map<Integer, EndgameState> endgameStates = new HashMap<>();
-
-    // New: level total steps record
+    private final Map<Integer, EndgameState> endgameStates = new HashMap<>();
     private final Map<Integer, Integer> levelTotalSteps = new HashMap<>();
 
-    public EndgameController(EngineService engine) {
+    public EndgameController(EngineService engine,
+                             DeepSeekEndgameService deepSeekEndgameService,
+                             OpenAIEndgameService openAIEndgameService,
+                             GeminiEndgameService geminiEndgameService,
+                             EndgameAccuracyService endgameAccuracyService) {
         this.engine = engine;
-        // Load existing total steps records on initialization
-        loadTotalSteps();
+        this.deepSeekEndgameService = deepSeekEndgameService;
+        this.openAIEndgameService = openAIEndgameService;
+        this.geminiEndgameService = geminiEndgameService;
+        this.endgameAccuracyService = endgameAccuracyService;
     }
 
-    /**
-     * Endgame state class
-     */
     private static class EndgameState {
-        Board board;                    // Current board
-        Side turn;                      // Whose turn
-        int foulCount = 0;              // Foul count
-        List<String> moveHistory = new ArrayList<>(); // UCI move records
-        List<String[]> foulRecords = new ArrayList<>(); // Foul records
-        int level;                      // Level number
-        boolean completed = false;      // Whether completed
-        Side playerSide;                // Player side
-        GameResult finalResult;         // Final result
-        String csvFilePath;             // CSV file path
+        Board board;
+        Side turn;
+        int foulCount = 0;
+        List<String> moveHistory = new ArrayList<>();
+        List<String[]> foulRecords = new ArrayList<>();
+        int level;
+        boolean completed = false;
+        Side playerSide;
+        XqEndgameJudge.GameResult finalResult;
 
-        // New: perpetual check/chase detection
-        Map<String, Integer> positionCounts = new HashMap<>(); // Position repetition count
-        String lastRepeatedPosition = null; // Last repeated position
-        boolean isRepeatedMove = false;     // Whether in repeated move state
+        Map<String, Integer> positionCounts = new HashMap<>();
+        String lastRepeatedPosition = null;
+        boolean isRepeatedMove = false;
 
         EndgameState(Board board, Side turn, int level, Side playerSide) {
             this.board = board;
@@ -69,20 +68,15 @@ public class EndgameController {
         }
     }
 
-    /** Load endgame level */
     @PostMapping("/load/{level}")
     public Map<String, Object> loadLevel(@PathVariable int level) {
         try {
-            // Load endgame configuration from JS file
             EndgameConfig config = loadEndgameConfig(level);
             if (config == null) {
                 throw new IllegalArgumentException("Level " + level + " does not exist");
             }
 
-            // Create endgame board
-            Board board = createBoardFromConfig(config);
-
-            // Player uses the starting side by default
+            Board board = XqEndgameJudge.createBoardFromConfig(level, config.startingSide, config.pieces);
             Side playerSide = config.startingSide;
 
             EndgameState state = new EndgameState(board, config.startingSide, level, playerSide);
@@ -96,7 +90,6 @@ public class EndgameController {
             resp.put("description", config.description != null ? config.description : "Endgame Level " + level);
             resp.put("board", serializeBoard(board));
 
-            // New: return level total steps
             int totalSteps = levelTotalSteps.getOrDefault(level, 0);
             resp.put("totalSteps", totalSteps);
 
@@ -107,7 +100,6 @@ public class EndgameController {
         }
     }
 
-    /** Endgame move */
     @PostMapping("/move/{level}")
     public Map<String, Object> playerMove(
             @PathVariable int level,
@@ -127,13 +119,15 @@ public class EndgameController {
         int toR = move.get("toR");
         int toC = move.get("toC");
 
-        Move m = new Move(new Pos(fromR, fromC), new Pos(toR, toC));
-        List<Move> legal = state.board.legalMovesAt(m.from);
+        Pos fromPos = new Pos(fromR, fromC);
+        Pos toPos = new Pos(toR, toC);
+        Move m = new Move(fromPos, toPos);
+
+        List<Move> legal = state.board.legalMovesAt(fromPos);
 
         Map<String, Object> resp = new HashMap<>();
 
-        // 1) Legality check
-        boolean isLegal = legal.stream().anyMatch(x -> x.to.equals(m.to));
+        boolean isLegal = legal.stream().anyMatch(x -> x.to.equals(toPos));
         if (!isLegal) {
             state.foulCount++;
             String foulTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
@@ -146,15 +140,13 @@ public class EndgameController {
             resp.put("result", "foul");
             resp.put("foulCount", state.foulCount);
             resp.put("message", "Illegal move! Please follow Xiangqi rules");
-            resp.put("board", serializeBoard(state.board)); // Ensure current board state is returned
+            resp.put("board", serializeBoard(state.board));
             return resp;
         }
 
-        // New: check if in repeated move state
         String currentPosition = getBoardPosition(state.board, state.turn);
         if (state.isRepeatedMove && state.lastRepeatedPosition != null &&
                 currentPosition.equals(state.lastRepeatedPosition)) {
-            // Still in repeated move, not allowed
             resp.put("result", "repeated_move");
             resp.put("message", "Perpetual check or chase prohibited! Please choose another move");
             resp.put("repeatedPosition", currentPosition);
@@ -162,16 +154,13 @@ public class EndgameController {
             return resp;
         }
 
-        // 2) Player legal move
         Board newBoard = state.board.makeMove(m);
         String playerMoveUci = coordToUci(m);
 
-        // New: check position repetition
         String newPosition = getBoardPosition(newBoard, state.turn.opponent());
         int repeatCount = state.positionCounts.getOrDefault(newPosition, 0) + 1;
         state.positionCounts.put(newPosition, repeatCount);
 
-        // Check if repetition threshold reached (5 times)
         if (repeatCount >= 5) {
             state.isRepeatedMove = true;
             state.lastRepeatedPosition = newPosition;
@@ -179,34 +168,29 @@ public class EndgameController {
             resp.put("message", "Perpetual check or chase prohibited! Please choose another move");
             resp.put("repeatedPosition", newPosition);
             resp.put("repeatCount", repeatCount);
-            resp.put("board", serializeBoard(state.board)); // Don't update board
+            resp.put("board", serializeBoard(state.board));
             return resp;
         } else {
             state.isRepeatedMove = false;
             state.lastRepeatedPosition = null;
         }
 
-        // Apply move
         state.board = newBoard;
         state.moveHistory.add(playerMoveUci);
 
-        // New: check stalemate (no legal moves)
-        if (isStalemate(state.board, state.turn.opponent())) {
-            // Opponent has no legal moves, current side wins
-            GameResult result = state.turn == Side.RED ? GameResult.RED_WIN : GameResult.BLACK_WIN;
+        if (XqEndgameJudge.isStalemate(state.board, state.turn.opponent())) {
+            XqEndgameJudge.GameResult result = state.turn == Side.RED ? XqEndgameJudge.GameResult.RED_WIN : XqEndgameJudge.GameResult.BLACK_WIN;
             return handleGameEnd(state, result, resp, "Stalemate", m);
         }
 
-        // 3) Use judge to check game state
-        GameResult result = XqEndgameJudge.checkGameState(state.board, state.turn.opponent());
-        if (result != GameResult.IN_PROGRESS) {
+        XqEndgameJudge.GameResult result = XqEndgameJudge.checkGameState(state.board, state.turn.opponent());
+        if (result != XqEndgameJudge.GameResult.IN_PROGRESS) {
             return handleGameEnd(state, result, resp, "After player move", m);
         }
 
         state.turn = state.turn.opponent();
 
-        // 4) AI move
-        String currentFen = boardToFen(state.board, state.turn);
+        String currentFen = boardToEngineFen(state.board, state.turn);
         String aiMoveUci = engine.bestMove(currentFen, state.moveHistory, true);
 
         Move aiMove = null;
@@ -215,23 +199,20 @@ public class EndgameController {
             if (aiMove != null) {
                 Board aiBoard = state.board.makeMove(aiMove);
 
-                // New: check position repetition after AI move
                 String aiPosition = getBoardPosition(aiBoard, state.turn);
                 int aiRepeatCount = state.positionCounts.getOrDefault(aiPosition, 0) + 1;
                 state.positionCounts.put(aiPosition, aiRepeatCount);
 
                 if (aiRepeatCount >= 5) {
-                    // AI perpetual check, player wins
-                    GameResult winResult = state.playerSide == Side.RED ? GameResult.RED_WIN : GameResult.BLACK_WIN;
+                    XqEndgameJudge.GameResult winResult = state.playerSide == Side.RED ? XqEndgameJudge.GameResult.RED_WIN : XqEndgameJudge.GameResult.BLACK_WIN;
                     return handleGameEnd(state, winResult, resp, "AI perpetual check foul", m);
                 }
 
                 state.board = aiBoard;
                 state.moveHistory.add(aiMoveUci);
 
-                // Use judge to check game state
                 result = XqEndgameJudge.checkGameState(state.board, state.turn);
-                if (result != GameResult.IN_PROGRESS) {
+                if (result != XqEndgameJudge.GameResult.IN_PROGRESS) {
                     return handleGameEnd(state, result, resp, "After AI move", m);
                 }
 
@@ -240,7 +221,6 @@ public class EndgameController {
             }
         }
 
-        // 5) Return result
         resp.put("result", "ok");
         resp.put("playerMove", playerMoveUci);
         resp.put("foulCount", state.foulCount);
@@ -248,7 +228,6 @@ public class EndgameController {
         resp.put("board", serializeBoard(state.board));
         resp.put("isRepeatedMove", state.isRepeatedMove);
 
-        // Check check state
         if (state.board.inCheck(state.turn)) {
             resp.put("inCheck", true);
             resp.put("message", "Check! Please escape check");
@@ -257,56 +236,35 @@ public class EndgameController {
         return resp;
     }
 
-    /**
-     * Handle game end logic
-     */
-    private Map<String, Object> handleGameEnd(EndgameState state, GameResult result,
+    private Map<String, Object> handleGameEnd(EndgameState state, XqEndgameJudge.GameResult result,
                                               Map<String, Object> resp, String trigger, Move lastMove) {
         state.completed = true;
         state.finalResult = result;
 
-        // Only generate CSV if there are foul records
-        String csvFilePath = null;
-        if (state.foulRecords != null && !state.foulRecords.isEmpty()) {
-            csvFilePath = XqEndgameJudge.exportFoulsToCsv(
-                    state.level, state.foulRecords, state.playerSide.toString(), LocalDateTime.now()
-            );
-        }
+        int aiMoveCount = (state.moveHistory.size() + 1) / 2;
+        updateLevelTotalSteps(state.level, aiMoveCount);
 
-        state.csvFilePath = csvFilePath;
-
-        // New: update level total steps
-        updateLevelTotalSteps(state.level, state.moveHistory.size());
-
-        // Set response - ensure latest board state is included
         resp.put("result", "gameOver");
         resp.put("gameResult", result.toString());
         resp.put("resultDescription", XqEndgameJudge.getResultDescription(result, state.playerSide));
         resp.put("completed", true);
-        resp.put("csvFilePath", csvFilePath);
         resp.put("trigger", trigger);
         resp.put("foulCount", state.foulCount);
-        resp.put("board", serializeBoard(state.board)); // Key: return final board state
+        resp.put("board", serializeBoard(state.board));
         resp.put("playerMove", coordToUci(lastMove));
 
         System.out.println("Game ended: " + result.getDescription() + " (" + trigger + ")");
-        System.out.println("Level " + state.level + " current steps: " + state.moveHistory.size() +
-                ", cumulative total steps: " + levelTotalSteps.get(state.level));
-        if (csvFilePath != null) {
-            System.out.println("CSV file path: " + csvFilePath);
-        }
+        System.out.println("Level " + state.level + " current AI steps: " + aiMoveCount +
+                ", cumulative total AI steps: " + levelTotalSteps.get(state.level));
 
         return resp;
     }
 
-    /** Reset level */
     @PostMapping("/reset/{level}")
     public Map<String, Object> resetLevel(@PathVariable int level) {
-        // Reload level
         return loadLevel(level);
     }
 
-    /** Get level progress */
     @GetMapping("/progress/{level}")
     public Map<String, Object> getProgress(@PathVariable int level) {
         EndgameState state = endgameStates.get(level);
@@ -320,160 +278,35 @@ public class EndgameController {
                 resp.put("finalResult", state.finalResult != null ? state.finalResult.toString() : "UNKNOWN");
                 resp.put("resultDescription",
                         XqEndgameJudge.getResultDescription(state.finalResult, state.playerSide));
-                resp.put("csvFilePath", state.csvFilePath);
             }
         } else {
             resp.put("level", level);
             resp.put("completed", false);
         }
 
-        // New: return level total steps
         int totalSteps = levelTotalSteps.getOrDefault(level, 0);
         resp.put("totalSteps", totalSteps);
 
         return resp;
     }
 
-    /** Download CSV file */
-    @GetMapping("/download-csv/{level}")
-    public ResponseEntity<Resource> downloadCsv(@PathVariable int level) {
-        try {
-            EndgameState state = endgameStates.get(level);
-            if (state == null || state.csvFilePath == null) {
-                return ResponseEntity.notFound().build();
-            }
-
-            Path filePath = Paths.get(state.csvFilePath);
-            Resource resource = new org.springframework.core.io.UrlResource(filePath.toUri());
-
-            if (!resource.exists()) {
-                return ResponseEntity.notFound().build();
-            }
-
-            return ResponseEntity.ok()
-                    .header(HttpHeaders.CONTENT_DISPOSITION,
-                            "attachment; filename=\"" + filePath.getFileName() + "\"")
-                    .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8")) // Add UTF-8 encoding
-                    .body(resource);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.notFound().build();
-        }
-    }
-
-    /** New: Get level total steps statistics */
     @GetMapping("/total-steps")
     public Map<String, Object> getTotalSteps() {
         Map<String, Object> resp = new HashMap<>();
         resp.put("levelTotalSteps", levelTotalSteps);
+        resp.put("note", "Statistics are stored in memory only and will reset on server restart");
         return resp;
     }
 
-    /** New: Load total steps records */
-    private void loadTotalSteps() {
-        try {
-            Path csvDir = Paths.get("src/main/resources/CSV_Endgame_ZeroShot");
-            if (!Files.exists(csvDir)) {
-                Files.createDirectories(csvDir);
-            }
-
-            Path filePath = csvDir.resolve("endgame_total_steps.csv");
-
-            if (!Files.exists(filePath)) {
-                System.out.println("Total steps record file does not exist, will create new file");
-                return;
-            }
-
-            try (BufferedReader reader = Files.newBufferedReader(filePath)) {
-                String header = reader.readLine(); // Skip header
-                if (header == null || !header.startsWith("level,total_steps")) {
-                    System.out.println("Total steps record file format incorrect");
-                    return;
-                }
-
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    String[] parts = line.split(",");
-                    if (parts.length == 2) {
-                        try {
-                            int level = Integer.parseInt(parts[0]);
-                            int steps = Integer.parseInt(parts[1]);
-                            levelTotalSteps.put(level, steps);
-                        } catch (NumberFormatException e) {
-                            System.err.println("Failed to parse total steps record: " + line);
-                        }
-                    }
-                }
-            }
-
-            System.out.println("Loaded level total steps records: " + levelTotalSteps);
-        } catch (IOException e) {
-            System.err.println("Failed to load total steps records: " + e.getMessage());
-        }
-    }
-
-    /** New: Update level total steps */
     private void updateLevelTotalSteps(int level, int currentSteps) {
         int totalSteps = levelTotalSteps.getOrDefault(level, 0) + currentSteps;
         levelTotalSteps.put(level, totalSteps);
-        saveTotalSteps();
+        System.out.println("Updated level " + level + " total AI steps in memory: " + totalSteps);
     }
 
-    /** New: Save total steps records to file */
-    private void saveTotalSteps() {
-        try {
-            Path csvDir = Paths.get("src/main/resources/CSV_Endgame_ZeroShot");
-            if (!Files.exists(csvDir)) {
-                Files.createDirectories(csvDir);
-            }
-
-            Path filePath = csvDir.resolve("endgame_total_steps.csv");
-
-            try (BufferedWriter writer = Files.newBufferedWriter(filePath)) {
-                writer.write("level,total_steps\n");
-
-                // Write sorted by level number
-                levelTotalSteps.entrySet().stream()
-                        .sorted(Map.Entry.comparingByKey())
-                        .forEach(entry -> {
-                            try {
-                                writer.write(entry.getKey() + "," + entry.getValue() + "\n");
-                            } catch (IOException e) {
-                                System.err.println("Failed to write total steps record: " + e.getMessage());
-                            }
-                        });
-            }
-
-            System.out.println("Saved level total steps records: " + levelTotalSteps);
-        } catch (IOException e) {
-            System.err.println("Failed to save total steps records: " + e.getMessage());
-        }
-    }
-
-    /** New: Check stalemate (no legal moves) */
-    private boolean isStalemate(Board board, Side side) {
-        // Traverse all pieces of this side on the board
-        for (int r = 0; r < 10; r++) {
-            for (int c = 0; c < 9; c++) {
-                Piece piece = board.at(r, c);
-                if (piece != null && piece.side == side) {
-                    List<Move> legalMoves = board.legalMovesAt(new Pos(r, c));
-                    if (!legalMoves.isEmpty()) {
-                        return false; // Has legal moves
-                    }
-                }
-            }
-        }
-        return true; // No legal moves
-    }
-
-    /** New: Get board position identifier (for repetition detection) */
     private String getBoardPosition(Board board, Side turn) {
         StringBuilder sb = new StringBuilder();
         sb.append(turn.toString()).append("|");
-
-        // Simplified position representation (piece types and positions)
         for (int r = 0; r < 10; r++) {
             for (int c = 0; c < 9; c++) {
                 Piece piece = board.at(r, c);
@@ -486,13 +319,243 @@ public class EndgameController {
         return sb.toString();
     }
 
+    /* ========== AI battle endpoints ========== */
+
+    @PostMapping("/ai-battle/new/{level}")
+    public ResponseEntity<Map<String, Object>> startEndgameAIBattle(
+            @PathVariable int level,
+            @RequestParam String mode) {
+
+        try {
+            EndgameConfig config = loadEndgameConfig(level);
+            if (config == null) {
+                throw new IllegalArgumentException("Level " + level + " does not exist");
+            }
+
+            Board board = XqEndgameJudge.createBoardFromConfig(level, config.startingSide, config.pieces);
+            Side startingSide = Side.RED;
+            Map<String, Object> result;
+
+            String actualMode = extractModeName(mode);
+            String modeLower = mode.toLowerCase();
+
+            System.out.println("[Endgame] Starting AI endgame battle, level: " + level +
+                    ", raw mode: " + mode + ", actual mode: " + actualMode);
+
+            if (modeLower.contains("openai") || modeLower.startsWith("gpt")) {
+                result = openAIEndgameService.startNewEndgameBattle(
+                        level, actualMode, board, startingSide);
+            } else if (modeLower.contains("gemini") || modeLower.startsWith("gemini")) {
+                result = geminiEndgameService.startNewEndgameBattle(
+                        level, actualMode, board, startingSide);
+            } else {
+                result = deepSeekEndgameService.startNewEndgameBattle(
+                        level, actualMode, board, startingSide);
+            }
+
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("error", "Failed to start AI battle: " + e.getMessage());
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
+    }
+
+    @PostMapping("/ai-battle/next-round/{level}")
+    public ResponseEntity<Map<String, Object>> playNextAIBattleRound(
+            @PathVariable int level,
+            @RequestParam String mode) {
+
+        try {
+            Map<String, Object> result;
+
+            String actualMode = extractModeName(mode);
+            String modeLower = mode.toLowerCase();
+
+            System.out.println("[Endgame] AI endgame battle next round, level: " + level +
+                    ", raw mode: " + mode + ", actual mode: " + actualMode);
+
+            if (modeLower.contains("openai") || modeLower.startsWith("gpt")) {
+                result = openAIEndgameService.playNextRound(level, actualMode);
+            } else if (modeLower.contains("gemini") || modeLower.startsWith("gemini")) {
+                result = geminiEndgameService.playNextRound(level, actualMode);
+            } else {
+                result = deepSeekEndgameService.playNextRound(level, actualMode);
+            }
+
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("error", "Failed to play next round: " + e.getMessage());
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
+    }
+
+    private String extractModeName(String mode) {
+        if (mode == null || mode.isEmpty()) {
+            return "zeroshot";
+        }
+        if (mode.equals("deepseek-reasoner") || mode.equals("gpt-5.2") || mode.equals("gemini-2.5-pro")) {
+            return "cot";
+        }
+        if (mode.equals("deepseek-chat") || mode.equals("gpt-5-mini") || mode.equals("gemini-2.5-flash")) {
+            return "zeroshot";
+        }
+        String actualMode = mode;
+        if (mode.startsWith("openai-")) {
+            actualMode = mode.substring(7);
+        } else if (mode.startsWith("deepseek-")) {
+            actualMode = mode.substring(9);
+        } else if (mode.startsWith("gemini-")) {
+            actualMode = mode.substring(7);
+        }
+        if (!"zeroshot".equals(actualMode) && !"cot".equals(actualMode)) {
+            if (actualMode.contains("zero") || actualMode.contains("shot")) {
+                actualMode = "zeroshot";
+            } else if (actualMode.contains("cot")) {
+                actualMode = "cot";
+            } else {
+                actualMode = "zeroshot";
+            }
+        }
+        return actualMode;
+    }
+
+    @GetMapping("/ai-battle/fouls/{level}")
+    public ResponseEntity<Map<String, Object>> getAIBattleFouls(
+            @PathVariable int level,
+            @RequestParam String mode) {
+
+        List<Map<String, Object>> fouls;
+        String actualMode = extractModeName(mode);
+        String modeLower = mode.toLowerCase();
+
+        if (modeLower.contains("openai") || modeLower.startsWith("gpt")) {
+            fouls = openAIEndgameService.getFoulRecords(level, actualMode);
+        } else if (modeLower.contains("gemini") || modeLower.startsWith("gemini")) {
+            fouls = geminiEndgameService.getFoulRecords(level, actualMode);
+        } else {
+            fouls = deepSeekEndgameService.getFoulRecords(level, actualMode);
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("fouls", fouls);
+        response.put("level", level);
+        response.put("mode", mode);
+        response.put("actualMode", actualMode);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/ai-battle/board-state/{level}")
+    public ResponseEntity<Map<String, Object>> getAIBattleBoardState(
+            @PathVariable int level,
+            @RequestParam String mode) {
+
+        Map<String, Object> boardState;
+        String actualMode = extractModeName(mode);
+        String modeLower = mode.toLowerCase();
+
+        if (modeLower.contains("openai") || modeLower.startsWith("gpt")) {
+            boardState = openAIEndgameService.getCurrentBoardState(level, actualMode);
+        } else if (modeLower.contains("gemini") || modeLower.startsWith("gemini")) {
+            boardState = geminiEndgameService.getCurrentBoardState(level, actualMode);
+        } else {
+            boardState = deepSeekEndgameService.getCurrentBoardState(level, actualMode);
+        }
+
+        if (boardState == null) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("error", "No AI battle in progress for level " + level);
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("boardState", boardState);
+        response.put("level", level);
+        response.put("mode", mode);
+        response.put("actualMode", actualMode);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/ai-battle/modes")
+    public ResponseEntity<Map<String, Object>> getAvailableAIBattleModes() {
+        Map<String, Object> response = new HashMap<>();
+        List<String> availableModes = Arrays.asList(
+                "deepseek-zero-shot", "deepseek-cot",
+                "openai-zero-shot", "openai-cot",
+                "gemini-zero-shot", "gemini-cot"
+        );
+        response.put("success", true);
+        response.put("availableModes", availableModes);
+        response.put("description", "Available AI battle modes");
+        return ResponseEntity.ok(response);
+    }
+
+    /* ========== Accuracy endpoints ========== */
+
+    @GetMapping("/accuracy/report")
+    public ResponseEntity<Map<String, Object>> getAccuracyReport() {
+        try {
+            Map<String, Object> report = endgameAccuracyService.getComprehensiveReport();
+            return ResponseEntity.ok(report);
+        } catch (Exception e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("error", "Failed to get accuracy report: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(errorResponse);
+        }
+    }
+
+    @GetMapping("/accuracy/csv-files")
+    public ResponseEntity<Map<String, Object>> getAccuracyCSVFiles() {
+        try {
+            Map<String, Object> files = endgameAccuracyService.getAccuracyCSVFiles();
+            return ResponseEntity.ok(files);
+        } catch (Exception e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("error", "Failed to get CSV file list: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(errorResponse);
+        }
+    }
+
+    @PostMapping("/accuracy/manual-save/{level}")
+    public ResponseEntity<Map<String, Object>> manualSaveAccuracy(
+            @PathVariable int level,
+            @RequestParam String mode,
+            @RequestBody List<String> aiMoves) {
+
+        try {
+            endgameAccuracyService.recordComparisonResult(level, mode, aiMoves);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Manually saved accuracy record");
+            response.put("level", level);
+            response.put("mode", mode);
+            response.put("aiMovesCount", aiMoves.size());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("error", "Manual save failed: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(errorResponse);
+        }
+    }
+
     /* ========== Utility Methods ========== */
 
-    /**
-     * Load endgame configuration from JS file
-     */
     private EndgameConfig loadEndgameConfig(int level) throws IOException {
-        // Try multiple possible paths
         String[] possiblePaths = {
                 "static/images/" + level + ".js",
                 "public/images/" + level + ".js",
@@ -501,7 +564,6 @@ public class EndgameController {
 
         for (String jsPath : possiblePaths) {
             ClassPathResource resource = new ClassPathResource(jsPath);
-
             if (resource.exists()) {
                 try (InputStream inputStream = resource.getInputStream();
                      BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
@@ -517,29 +579,20 @@ public class EndgameController {
                 }
             }
         }
-
-        // If JS file not found, throw exception
         throw new FileNotFoundException("JS configuration file for level " + level + " not found");
     }
 
-    /**
-     * Parse JS configuration - for new __exportLevel format
-     */
     private EndgameConfig parseJsConfig(String jsContent, int level) {
         EndgameConfig config = new EndgameConfig();
         config.level = level;
 
         try {
-            // Clean JS content, remove unnecessary spaces and newlines
             String cleanedContent = jsContent.replaceAll("\\s+", " ").trim();
-
-            // Remove comments
             cleanedContent = cleanedContent.replaceAll("//.*", "");
             cleanedContent = cleanedContent.replaceAll("/\\*.*?\\*/", "");
 
             System.out.println("Cleaned JS content: " + cleanedContent);
 
-            // Extract side information - for __exportLevel format
             Pattern sidePattern = Pattern.compile("side:\\s*[\"']?(RED|BLACK)[\"']?");
             Matcher sideMatcher = sidePattern.matcher(cleanedContent);
             if (sideMatcher.find()) {
@@ -547,14 +600,12 @@ public class EndgameController {
                 config.startingSide = "RED".equals(sideStr) ? Side.RED : Side.BLACK;
                 System.out.println("Found starting side: " + sideStr);
             } else {
-                config.startingSide = Side.RED; // Default red first
+                config.startingSide = Side.RED;
                 System.out.println("Using default starting side: RED");
             }
 
-            // Extract pieces array
             config.pieces = new ArrayList<>();
 
-            // Find pieces array start and end positions
             int piecesStart = cleanedContent.indexOf("pieces: [");
             if (piecesStart == -1) {
                 throw new IllegalArgumentException("Pieces array not found");
@@ -563,7 +614,6 @@ public class EndgameController {
             int bracketCount = 1;
             int piecesEnd = piecesStart + "pieces: [".length();
 
-            // Find matching closing bracket
             for (int i = piecesEnd; i < cleanedContent.length(); i++) {
                 char c = cleanedContent.charAt(i);
                 if (c == '[') bracketCount++;
@@ -578,7 +628,6 @@ public class EndgameController {
             String piecesSection = cleanedContent.substring(piecesStart + "pieces: [".length(), piecesEnd);
             System.out.println("Pieces section: " + piecesSection);
 
-            // Parse piece objects
             Pattern piecePattern = Pattern.compile(
                     "\\{\\s*type:\\s*[\"']?([KABNRCPH])[\"']?\\s*,\\s*side:\\s*[\"']?(RED|BLACK)[\"']?\\s*,\\s*r:\\s*(\\d+)\\s*,\\s*c:\\s*(\\d+)\\s*\\}"
             );
@@ -592,14 +641,13 @@ public class EndgameController {
                     int c = Integer.parseInt(pieceMatcher.group(4));
 
                     Side side = "RED".equals(sideStr) ? Side.RED : Side.BLACK;
-                    config.pieces.add(new PiecePlacement(type, side, r, c));
+                    config.pieces.add(new XqEndgameJudge.PiecePlacement(type, side, r, c));
                     System.out.println("Parsed piece: " + type + " " + sideStr + " position(" + r + "," + c + ")");
                 } catch (Exception e) {
                     System.err.println("Failed to parse piece: " + e.getMessage());
                 }
             }
 
-            // If no pieces found, throw exception
             if (config.pieces.isEmpty()) {
                 throw new IllegalArgumentException("No piece definitions found in JS configuration for level " + level);
             }
@@ -615,52 +663,6 @@ public class EndgameController {
         }
     }
 
-    /**
-     * Create board from configuration
-     */
-    private Board createBoardFromConfig(EndgameConfig config) {
-        Board board = new Board();
-
-        // Clear board
-        for (int r = 0; r < 10; r++) {
-            for (int c = 0; c < 9; c++) {
-                board.set(r, c, null);
-            }
-        }
-
-        // Place pieces
-        for (PiecePlacement placement : config.pieces) {
-            Piece piece = createPiece(placement.type, placement.side, placement.r, placement.c);
-            if (piece != null) {
-                board.set(placement.r, placement.c, piece);
-                System.out.println("Placed piece: " + placement.type + " " + placement.side + " at position(" + placement.r + "," + placement.c + ")");
-            }
-        }
-
-        return board;
-    }
-
-    /**
-     * Create piece object
-     */
-    private Piece createPiece(String type, Side side, int r, int c) {
-        Pos pos = new Pos(r, c);
-        switch (type) {
-            case "K": return new General(side, pos);
-            case "A": return new Advisor(side, pos);
-            case "B": return new Elephant(side, pos);
-            case "N": return new Horse(side, pos);
-            case "R": return new Rook(side, pos);
-            case "C": return new Cannon(side, pos);
-            case "P": return new Pawn(side, pos);
-            case "H": return new Horse(side, pos); // H also maps to Horse
-            default: return null;
-        }
-    }
-
-    /**
-     * Serialize board state for frontend
-     */
     private List<List<Map<String, Object>>> serializeBoard(Board board) {
         List<List<Map<String, Object>>> serialized = new ArrayList<>();
         for (int r = 0; r < 10; r++) {
@@ -695,15 +697,9 @@ public class EndgameController {
         }
     }
 
-    /**
-     * Convert board to FEN string (simplified version)
-     */
-    private String boardToFen(Board board, Side turn) {
-        // Simplified implementation - generate basic FEN string
+    private String boardToEngineFen(Board board, Side turn) {
         StringBuilder fen = new StringBuilder();
-
-        // Board section
-        for (int r = 0; r < 10; r++) {
+        for (int r = 9; r >= 0; r--) {
             int emptyCount = 0;
             for (int c = 0; c < 9; c++) {
                 Piece piece = board.at(r, c);
@@ -714,21 +710,13 @@ public class EndgameController {
                         fen.append(emptyCount);
                         emptyCount = 0;
                     }
-                    char pieceChar = getPieceChar(piece);
-                    fen.append(pieceChar);
+                    fen.append(getPieceChar(piece));
                 }
             }
-            if (emptyCount > 0) {
-                fen.append(emptyCount);
-            }
-            if (r < 9) {
-                fen.append('/');
-            }
+            if (emptyCount > 0) fen.append(emptyCount);
+            if (r > 0) fen.append('/');
         }
-
-        // Turn
         fen.append(' ').append(turn == Side.RED ? 'w' : 'b');
-
         return fen.toString();
     }
 
@@ -747,44 +735,69 @@ public class EndgameController {
         return piece.side == Side.RED ? Character.toUpperCase(baseChar) : baseChar;
     }
 
-    /* ---------- UCI Conversion Utilities ---------- */
-
     private String coordToUci(Move m) {
-        return "" + (char)('a' + m.from.c) + (9 - m.from.r)
-                + (char)('a' + m.to.c)   + (9 - m.to.r);
+        return "" + (char)('a' + m.from.c) + (char)('0' + m.from.r)
+                + (char)('a' + m.to.c) + (char)('0' + m.to.r);
     }
 
     private Move parseUci(String uci) {
         if (uci == null || uci.length() < 4) return null;
         int fromC = uci.charAt(0) - 'a';
-        int fromR = 9 - (uci.charAt(1) - '0');
-        int toC   = uci.charAt(2) - 'a';
-        int toR   = 9 - (uci.charAt(3) - '0');
+        int fromR = uci.charAt(1) - '0';
+        int toC = uci.charAt(2) - 'a';
+        int toR = uci.charAt(3) - '0';
         return new Move(new Pos(fromR, fromC), new Pos(toR, toC));
     }
 
-    /**
-     * Endgame configuration class
-     */
+    public static String generateBoardVisualization(Board board) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("  a  b  c  d  e  f  g  h  i\n");
+        for (int r = 9; r >= 0; r--) {
+            sb.append(r).append(" ");
+            for (int c = 0; c < 9; c++) {
+                Piece piece = board.at(r, c);
+                if (piece == null) {
+                    sb.append(" . ");
+                } else {
+                    sb.append(" ").append(pieceToChar(piece)).append(" ");
+                }
+            }
+            sb.append(r).append("\n");
+        }
+        sb.append("  a  b  c  d  e  f  g  h  i\n");
+        return sb.toString();
+    }
+
+    private static char pieceToChar(Piece piece) {
+        if (piece.side == Side.RED) {
+            switch (piece.type) {
+                case ROOK: return 'R';
+                case HORSE: return 'H';
+                case ELEPHANT: return 'E';
+                case ADVISOR: return 'A';
+                case GENERAL: return 'K';
+                case CANNON: return 'C';
+                case PAWN: return 'P';
+                default: return '?';
+            }
+        } else {
+            switch (piece.type) {
+                case ROOK: return 'r';
+                case HORSE: return 'h';
+                case ELEPHANT: return 'e';
+                case ADVISOR: return 'a';
+                case GENERAL: return 'k';
+                case CANNON: return 'c';
+                case PAWN: return 'p';
+                default: return '?';
+            }
+        }
+    }
+
     private static class EndgameConfig {
         int level;
         Side startingSide;
-        List<PiecePlacement> pieces;
+        List<XqEndgameJudge.PiecePlacement> pieces;
         String description;
-    }
-
-    private static class PiecePlacement {
-        String type;
-        Side side;
-        int r, c;
-
-        PiecePlacement() {}
-
-        PiecePlacement(String type, Side side, int r, int c) {
-            this.type = type;
-            this.side = side;
-            this.r = r;
-            this.c = c;
-        }
     }
 }

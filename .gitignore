@@ -1,20 +1,27 @@
 HELP.md
+
+# Build output
 target/
-.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# Maven wrapper binary (keep scripts, ignore downloaded jar if desired)
+.mvn/wrapper/maven-wrapper.jar
 
 ### STS ###
 .apt_generated
 .classpath
 .factorypath
 .project
-.settings
+.settings/
 .springBeans
-.sts4-cache
+.sts4-cache/
 
 ### IntelliJ IDEA ###
-.idea
+.idea/
 *.iws
 *.iml
 *.ipr
@@ -25,9 +32,33 @@ target/
 /dist/
 /nbdist/
 /.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
 
 ### VS Code ###
 .vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs and temp files
+*.log
+*.tmp
+*.temp
+
+# Local environment / secrets
+.env
+.env.*
+*.local
+application-local.properties
+application-secret.properties
+
+# Experiment outputs / generated datasets
+src/main/resources/CSV_*/
+**/CSV_*/
+*.csv
+*_counter.txt
+
+# Optional: Python cache if analysis scripts are added later
+__pycache__/
+*.pyc
+
